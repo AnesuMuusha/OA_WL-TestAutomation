@@ -15,6 +15,7 @@ const { chromium } = require("playwright");
     });
     console.log("Landing page loaded successfully");
 
+     
     // Step 2: Fill email field
     await page.waitForSelector('input[name="email"]', { timeout: 10000 });
     await page.fill('input[name="email"]', "WLAdmin");
@@ -28,8 +29,13 @@ const { chromium } = require("playwright");
     await page.click('button.bg-secondary:has-text("Log in")');
 
     // Step 5: Click Practitioners tab
-    await page.waitForSelector('a[href="/users/practitioners"]', { timeout: 10000 });
-    await page.click('a[href="/users/practitioners"]');
+    // await page.waitForSelector('a[href="/users/practitioners"]', { timeout: 10000 });
+    // await page.click('a[href="/users/practitioners"]');
+
+     // With explicit wait :       Click Practitioner:
+await page.locator('a[href="/users/practitioners"]').waitFor({ state: 'visible' });
+await page.locator('a[href="/users/practitioners"]').click();
+
 
     // Step 6: Click "Add Practitioners"
     await page.waitForSelector('p:has-text("Add Practitioners")', { timeout: 10000 });
@@ -41,7 +47,7 @@ const { chromium } = require("playwright");
 
     // Step 8: Fill first name field
     await page.waitForSelector('input[name="firstName"]', { timeout: 10000 });
-    await page.fill('input[name="firstName"]', 'QAQMAutomationWL003');
+    await page.fill('input[name="firstName"]', 'WLQACamera004');
 
     // Step 9: Fill surname field
     await page.waitForSelector('input[name="surname"]', { timeout: 10000 });
@@ -57,7 +63,7 @@ const { chromium } = require("playwright");
 
     // Step 12: Fill ID number field
     await page.waitForSelector('input[name="idNumber"]', { timeout: 10000 });
-    await page.fill('input[name="idNumber"]', 'QAQMAutomationWL003');
+    await page.fill('input[name="idNumber"]', 'WLQACamera004');
 
     // Step 13: Select Practitioner's coach
     await page.waitForSelector('label:has-text("Practitioner\'s coach")', { timeout: 50000 });
@@ -69,46 +75,32 @@ const { chromium } = require("playwright");
     console.log("Practitioner saved successfully");
 
     // Step 15: Ensure the practitioner list is loaded
-    await page.waitForSelector('table', { timeout: 15000 }); // Adjust if list isn't in a <table>
+    await page.waitForSelector('table', { timeout: 15000 });
 
     // Step 16: Find and click the row containing the practitioner's name
-    const practitionerName = 'QAQMAutomationWL003';
+    const practitionerName = 'WLQACamera004';
     console.log(`Searching for practitioner: ${practitionerName}`);
     await page.waitForSelector(`td:has-text("${practitionerName}")`, { timeout: 15000 });
 
-    // Debug: Log number of matching rows
     const rows = await page.$$(`td:has-text("${practitionerName}")`);
     console.log(`Found ${rows.length} rows with name ${practitionerName}`);
 
-    // Click the button in the specific practitioner's row
     const rowSelector = `tr:has(td:has-text("${practitionerName}"))`;
     await page.waitForSelector(`${rowSelector} button`, { timeout: 10000 });
     await page.click(`${rowSelector} button`);
     console.log(`Clicked button for practitioner: ${practitionerName}`);
 
-
-    await page.waitForTimeout(5000) 
-
-
+    await page.waitForTimeout(5000);
 
     // Step 17: Click Resend Invitation button
     console.log("Waiting for 'Resend Invitation' element...");
     await page.waitForSelector('p.font-semibold.text-sm.text-white.font-body:has-text("Resend Invitation")', { timeout: 15000, state: 'visible' });
     
-    // Debug: Verify element is clickable
-    const isClickable = await page.$eval('p.font-semibold.text-sm.text-white.font-body:has-text("Resend Invitation")', el => {
-      const rect = el.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).display !== 'none';
-    });
-    console.log(`Is 'Resend Invitation' clickable? ${isClickable}`);
-
-    // Try clicking the <p> directly
     try {
       await page.click('p.font-semibold.text-sm.text-white.font-body:has-text("Resend Invitation")', { timeout: 5000 });
       console.log("Clicked 'Resend Invitation' <p> directly");
     } catch (directClickError) {
       console.log("Direct click on <p> failed, trying parent element...");
-      // Fallback: Click the parent element (e.g., button or div containing the <p>)
       await page.click('p.font-semibold.text-sm.text-white.font-body:has-text("Resend Invitation") >> xpath=..', { timeout: 5000 });
       console.log("Clicked parent of 'Resend Invitation' <p>");
     }
@@ -123,65 +115,98 @@ const { chromium } = require("playwright");
     console.log(`Copied URL: ${copiedUrl}`);
     const newPage = await context.newPage();
     await newPage.goto(copiedUrl);
-    await newPage.waitForLoadState('domcontentloaded'); // Ensure the new page is fully loaded
+    await newPage.waitForLoadState('domcontentloaded');
     console.log("Navigated to invite URL");
 
-    // Click Passport button
-    await page.getByText('Enter Passport number instead').waitFor({ state: 'visible' });
-
-
-    //Enter passport number
-    await page.locator('input[name="username"]').clear();
-    await page.locator('input[name="username"]').fill('QAQMAutomationWL003');
+    // ALL ACTIONS BELOW SHOULD USE newPage (not page)
     
+    // Click "Enter Passport number instead" button
+    await newPage.getByText('Enter Passport number instead').click();
+    console.log("Clicked 'Enter Passport number instead'");
 
-    //Enter phone number:
-    await page.locator('input[name="cellphone"]').fill('0719270935');
+    // Enter passport number
+    await newPage.locator('input[name="username"]').fill('WLQACamera004');
+    console.log("Filled passport number");
 
-    //Click
-    await page.locator('input[name="termsAndConditionsAccepted"]').click();
+    // Enter phone number
+    await newPage.locator('input[name="cellphone"]').fill('0719270935');
+    console.log("Filled phone number");
 
-    //Click
-    await page.locator('input[name="dataPermissionAgreementAccepted"]').check()
+    // Accept terms and conditions
+    await newPage.locator('input[name="termsAndConditionsAccepted"]').check();
+    console.log("Checked terms and conditions");
 
-    //Next
-    await page.getByText('Next').click();
+    // Accept data permission agreement
+    await newPage.locator('input[name="dataPermissionAgreementAccepted"]').check();
+    console.log("Checked data permission agreement");
 
+    // Click Next
+    await newPage.getByText('Next').click();
+    console.log("Clicked Next");
 
-      // Click
-    await page.getByText('Create a username').click();
+    await newPage.waitForTimeout(3000);
+
+    // Click "Create a username"
+    await newPage.getByText('Create a username').click();
+    console.log("Clicked 'Create a username'");
+
+    // Enter username
+    await newPage.getByPlaceholder('e.g. Nothando_123').fill('WLQACamera004');
+    console.log("Filled username");
+
+    // Enter password
+    await newPage.locator('input[name="password"]').fill('Tester_12');
+    console.log("Filled password");
+
+    await newPage.waitForTimeout(3000);
+
+    // FIXED: Click Sign up - use newPage and better selectors
+    console.log("Attempting to click Sign up button...");
+    try {
+      // Method 1: Wait for and click by text
+      await newPage.getByText('Sign up').waitFor({ state: 'visible', timeout: 10000 });
+      await newPage.getByText('Sign up').click();
+      console.log("Clicked Sign up button (method 1)");
+    } catch (error1) {
+      console.log("Method 1 failed, trying method 2...");
+      try {
+        await newPage.locator('button.bg-quatenary:has-text("Sign up")').click();
+        console.log("Clicked Sign up button (method 2)");
+      } catch (error2) {
+        console.log("Method 2 failed, trying method 3...");
+        try {
+          await newPage.locator('button:has(p:has-text("Sign up"))').click();
+          console.log("Clicked Sign up button (method 3)");
+        } catch (error3) {
+          console.log("All methods failed, trying force click...");
+          await newPage.locator('p:has-text("Sign up")').click({ force: true });
+          console.log("Force clicked Sign up");
+        }
+      }
+    }
     
-    // Username
+    await newPage.waitForTimeout(3000);
 
-await page.getByPlaceholder('e.g. Nothando_123').fill('QAQMAutomationWL003');
+    // Login with created credentials
+    await newPage.locator('input[name="username"]').fill('WLQACamera004');
+    console.log("Filled login username");
 
-// Option 1: Fill by name attribute (most reliable)
-await page.locator('input[name="password"]').fill('Tester_12');
+    await newPage.locator('input[name="password"]').fill('Tester_12');
+    console.log("Filled login password");
 
-// Option 1: Click by text content (most reliable)
-await page.getByText('Sign up').click();
-    
-// Option 1: Fill by name attribute (most reliable)
-await page.locator('input[name="username"]').fill('QAQMAutomationWL003');
+    await newPage.waitForTimeout(3000);
 
-// Option 1: Fill by name attribute (most reliable)
-await page.locator('input[name="password"]').fill('Tester_12');
+    // Click login button
+    await newPage.locator('#gtm-login').click();
+    console.log("Clicked login button");
 
-
-// Option 1: Click by button ID (most reliable)
-await page.locator('#gtm-login').click();
-
-// Option 1: Click by text content (most reliable)
-await page.getByText('Start').click();
-
-await page.waitForTimeout(3000); // Wait 10 seconds before closing  
+    await newPage.waitForTimeout(3000);
 
     console.log("Automation completed successfully");
   } catch (error) {
     console.error("Automation failed:", error);
     console.log("Current URL:", page.url());
 
-    // Quick error screenshot
     try {
       await page.screenshot({ path: "error-screenshot.png" });
       console.log("Error screenshot saved");

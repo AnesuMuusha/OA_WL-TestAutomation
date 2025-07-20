@@ -10,7 +10,7 @@ const { chromium } = require("playwright")
     // Step 1: Navigate to landing page (reduced timeout)
     console.log("Navigating to landing page...")
     await page.goto("https://ecdconnect-qa-app.azurewebsites.net/", {
-      timeout: 8000,
+      timeout: 40000,
       waitUntil: "domcontentloaded",
     })
     console.log("Landing page loaded successfully")
@@ -73,10 +73,12 @@ const { chromium } = require("playwright")
     // Fill form fields quickly
     console.log("Filling form fields...")
     await page.click('button:has-text("Create a username")')
-    await page.fill('input[name="password"]', 'Tester_12')
-    await page.fill('input[placeholder="e.g. Nothando_123"]', 'TestOAQAInvitePrac001')
+    await page.fill('input[name="password"]', 'Tester_12') 
+    await page.fill('input[placeholder="e.g. Nothando_123"]', 'OAQACamera004')
     await page.fill('input[placeholder="e.g 0123456789"]', '0719270935')
 
+//ProgressSummaryOA0013
+//WLUmstha1
     // Optimized network monitoring
     let verificationCode = null
     const verificationCodePromise = new Promise((resolve, reject) => {
