@@ -74,7 +74,7 @@ const { chromium } = require("playwright")
     console.log("Filling form fields...")
     await page.click('button:has-text("Create a username")')
     await page.fill('input[name="password"]', 'Tester_12')
-    await page.fill('input[placeholder="e.g. Nothando_123"]', 'ProgressSummaryWL007')
+    await page.fill('input[placeholder="e.g. Nothando_123"]', 'CEO2')
     await page.fill('input[placeholder="e.g 0123456789"]', '0719270935')
 
     // Optimized network monitoring
@@ -168,13 +168,13 @@ await page.locator('p.text-sm.font-h1.font-normal.text-white', { hasText: 'Confi
     await page.click('p.font-medium.text-textMid.font-h4:has-text("Principal")');
 
     //Enter Principal name:
-    await page.fill('input[placeholder="First name"]', 'ProgressSummaryWL007');
+    await page.fill('input[placeholder="First name"]', 'CEO2');
 
     // Click "Enter passport number" button
     await page.click('p.font-semibold.text-xs:has-text("Enter passport number instead")');
 
     //Passport:
-    await page.fill('input[placeholder="e.g. A012345"]', 'ProgressSummaryWL007');
+    await page.fill('input[placeholder="e.g. A012345"]', 'CEO2');
 
     //QAPreschoolNotification6 70
     //WLPoints1QA 75

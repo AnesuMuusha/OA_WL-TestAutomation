@@ -47,7 +47,7 @@ await page.locator('a[href="/users/practitioners"]').click();
 
     // Step 8: Fill first name field
     await page.waitForSelector('input[name="firstName"]', { timeout: 10000 });
-    await page.fill('input[name="firstName"]', 'WLQACamera004');
+    await page.fill('input[name="firstName"]', 'DownloaadAppWL7');
 
     // Step 9: Fill surname field
     await page.waitForSelector('input[name="surname"]', { timeout: 10000 });
@@ -63,7 +63,7 @@ await page.locator('a[href="/users/practitioners"]').click();
 
     // Step 12: Fill ID number field
     await page.waitForSelector('input[name="idNumber"]', { timeout: 10000 });
-    await page.fill('input[name="idNumber"]', 'WLQACamera004');
+    await page.fill('input[name="idNumber"]', 'DownloaadAppWL7');
 
     // Step 13: Select Practitioner's coach
     await page.waitForSelector('label:has-text("Practitioner\'s coach")', { timeout: 50000 });
@@ -78,7 +78,7 @@ await page.locator('a[href="/users/practitioners"]').click();
     await page.waitForSelector('table', { timeout: 15000 });
 
     // Step 16: Find and click the row containing the practitioner's name
-    const practitionerName = 'WLQACamera004';
+    const practitionerName = 'DownloaadAppWL7';
     console.log(`Searching for practitioner: ${practitionerName}`);
     await page.waitForSelector(`td:has-text("${practitionerName}")`, { timeout: 15000 });
 
@@ -125,7 +125,7 @@ await page.locator('a[href="/users/practitioners"]').click();
     console.log("Clicked 'Enter Passport number instead'");
 
     // Enter passport number
-    await newPage.locator('input[name="username"]').fill('WLQACamera004');
+    await newPage.locator('input[name="username"]').fill('DownloaadAppWL7');
     console.log("Filled passport number");
 
     // Enter phone number
@@ -151,7 +151,7 @@ await page.locator('a[href="/users/practitioners"]').click();
     console.log("Clicked 'Create a username'");
 
     // Enter username
-    await newPage.getByPlaceholder('e.g. Nothando_123').fill('WLQACamera004');
+    await newPage.getByPlaceholder('e.g. Nothando_123').fill('DownloaadAppWL7');
     console.log("Filled username");
 
     // Enter password
@@ -188,7 +188,7 @@ await page.locator('a[href="/users/practitioners"]').click();
     await newPage.waitForTimeout(3000);
 
     // Login with created credentials
-    await newPage.locator('input[name="username"]').fill('WLQACamera004');
+    await newPage.locator('input[name="username"]').fill('DownloaadAppWL7');
     console.log("Filled login username");
 
     await newPage.locator('input[name="password"]').fill('Tester_12');

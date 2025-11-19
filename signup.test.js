@@ -74,7 +74,7 @@ const { chromium } = require("playwright")
     console.log("Filling form fields...")
     await page.click('button:has-text("Create a username")')
     await page.fill('input[name="password"]', 'Tester_12') 
-    await page.fill('input[placeholder="e.g. Nothando_123"]', 'OAQACamera004')
+    await page.fill('input[placeholder="e.g. Nothando_123"]', 'AutomationTuesdayOA006')
     await page.fill('input[placeholder="e.g 0123456789"]', '0719270935')
 
 //ProgressSummaryOA0013
