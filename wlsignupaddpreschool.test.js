@@ -645,7 +645,7 @@ console.log("Summary:");
 console.log("✓ Created practitioner: WLChildTest4");
 console.log("✓ Set up preschool: TestAuto");
 console.log("✓ Added class with practitioner");
-console.log("✓ Added child: Gerald Jaz");
+console.log("✓ Added child: Lisa Jaz");
 console.log("✓ Completed full registration flow");
 
 } catch (error) {

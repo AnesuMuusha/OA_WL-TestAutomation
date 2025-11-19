@@ -74,7 +74,7 @@ const { chromium } = require("playwright")
     console.log("Filling form fields...")
     await page.click('button:has-text("Create a username")')
     await page.fill('input[name="password"]', 'Tester_12')
-    await page.fill('input[placeholder="e.g. Nothando_123"]', 'OASchoolProgress')
+    await page.fill('input[placeholder="e.g. Nothando_123"]', 'Ayanda')
     await page.fill('input[placeholder="e.g 0123456789"]', '0719270935')
 
     // Optimized network monitoring
@@ -168,13 +168,13 @@ await page.locator('p.text-sm.font-h1.font-normal.text-white', { hasText: 'Confi
     await page.click('p.font-medium.text-textMid.font-h4:has-text("Principal")');
 
     //Enter Principal name:
-    await page.fill('input[placeholder="First name"]', 'OASchoolProgress');
+    await page.fill('input[placeholder="First name"]', 'Ayanda');
 
     // Click "Enter passport number" button
     await page.click('p.font-semibold.text-xs:has-text("Enter passport number instead")');
 
     //Passport:
-    await page.fill('input[placeholder="e.g. A012345"]', 'OASchoolProgress');
+    await page.fill('input[placeholder="e.g. A012345"]', 'Ayanda');
 
     //QAPreschoolNotification6 70
     //WLPoints1QA 75
@@ -256,32 +256,36 @@ await page.getByText('Class 1').click();
 //5second
 await page.waitForTimeout(3000)
 
-//Next
-await page.getByRole('button', { name: 'Next' }).click();
+// Save - Click Next after child details
+console.log("=== Clicking Save after child details ===");
+await page.getByText('Save').click();
 
+// Fill form - Click "Fill in the registration form" button
+console.log("=== Starting child registration form ===");
+await page.getByRole('button', { name: 'Fill in the registration form' }).click();
+console.log("Clicked Fill in the registration form");
 
-//Fill form
-await page.getByText("Fill in child’s registration form").click();
-
-//Check
-await page.getByText("Personal information agreement").click();
-
-//Yes:
+// Check - Accept personal information agreement (check the actual checkbox)
+await page.locator('input[name="personalInformationAgreementAccepted"]').check();
+console.log("Checked Personal information agreement checkbox");
+// Yes:
 await page.getByText("Yes").click();
+console.log("Clicked Yes for agreement");
 
-//Next
+// Next
 await page.getByText("Next").click({ force: true });
+console.log("Clicked Next after agreement");
 
+/// Click the Day dropdown button
+console.log("=== Setting birth date - Day ===");
+await page.locator('button[aria-haspopup="menu"]').first().click();
+console.log("Clicked Day dropdown");
 
-    // FIXED: Day dropdown - use exact text matching
-    await page.getByText("Day").click();
-    // Option 1: Use getByRole with exact name matching
-    await page.getByRole('menuitem', { name: '2', exact: true }).click();
-    // OR Option 2: Use CSS selector with exact text
-    // await page.locator('div.text-md.flex.flex-row.gap-2\\.5.text-textDark.font-normal:text-is("2")').click();
-    await page.waitForTimeout(1000);
+// Wait for the menu to appear and click the day value
+await page.getByText('15').click();
+console.log("Selected day 15");
 
-    // FIXED: Month dropdown - use exact text matching
+ // FIXED: Month dropdown - use exact text matching
     await page.getByText("Month").click();
     await page.getByRole('menuitem', { name: 'Feb', exact: true }).click();
     // OR use: await page.getByText('Feb', { exact: true }).click();
@@ -294,9 +298,11 @@ await page.getByText("Next").click({ force: true });
     // OR keep your existing approach: await page.locator('div#headlessui-menu-item-455', { hasText: '2024' }).click();
     await page.waitForTimeout(1000);
 
-//next
+// next
+console.log("=== Proceeding after birth date ===");
 await page.getByText("Next").click();
 await page.waitForTimeout(1000);
+
 
 //next
 await page.getByText("Next").click();
@@ -360,12 +366,19 @@ await page.getByTestId('close-button').click();
 
 
 
+//Click class1
+await page.getByText('Class 1').click();
+await page.waitForTimeout(1000);
+
+//See children button: 
+await page.getByRole('button', { name: 'See children' }).click();
+await page.waitForTimeout(1000);
+
 
 //add child 2
-await page.getByRole('heading', { name: 'Classroom' }).click();
+await page.getByRole('button', { name: 'Add a child' }).click();
+await page.waitForTimeout(1000);
 
-await page.locator('[data-testid="close-button"]').waitFor({ state: 'visible' });
-await page.locator('[data-testid="close-button"]').click();
 
 await page.getByRole('button', { name: 'Add a child' }).click();
 await page.waitForTimeout(1000);
@@ -386,32 +399,36 @@ await page.getByText('Class 1').click();
 //5second
 await page.waitForTimeout(3000)
 
-//Next
-await page.getByRole('button', { name: 'Next' }).click();
+// Save - Click Next after child details
+console.log("=== Clicking Save after child details ===");
+await page.getByText('Save').click();
 
+// Fill form - Click "Fill in the registration form" button
+console.log("=== Starting child registration form ===");
+await page.getByRole('button', { name: 'Fill in the registration form' }).click();
+console.log("Clicked Fill in the registration form");
 
-//Fill form
-await page.getByText("Fill in child’s registration form").click();
-
-//Check
-await page.getByText("Personal information agreement").click();
-
-//Yes:
+// Check - Accept personal information agreement (check the actual checkbox)
+await page.locator('input[name="personalInformationAgreementAccepted"]').check();
+console.log("Checked Personal information agreement checkbox");
+// Yes:
 await page.getByText("Yes").click();
+console.log("Clicked Yes for agreement");
 
-//Next
+// Next
 await page.getByText("Next").click({ force: true });
+console.log("Clicked Next after agreement");
 
+/// Click the Day dropdown button
+console.log("=== Setting birth date - Day ===");
+await page.locator('button[aria-haspopup="menu"]').first().click();
+console.log("Clicked Day dropdown");
 
-    // FIXED: Day dropdown - use exact text matching
-    await page.getByText("Day").click();
-    // Option 1: Use getByRole with exact name matching
-    await page.getByRole('menuitem', { name: '2', exact: true }).click();
-    // OR Option 2: Use CSS selector with exact text
-    // await page.locator('div.text-md.flex.flex-row.gap-2\\.5.text-textDark.font-normal:text-is("2")').click();
-    await page.waitForTimeout(1000);
+// Wait for the menu to appear and click the day value
+await page.getByText('15').click();
+console.log("Selected day 15");
 
-    // FIXED: Month dropdown - use exact text matching
+ // FIXED: Month dropdown - use exact text matching
     await page.getByText("Month").click();
     await page.getByRole('menuitem', { name: 'Feb', exact: true }).click();
     // OR use: await page.getByText('Feb', { exact: true }).click();
@@ -424,9 +441,11 @@ await page.getByText("Next").click({ force: true });
     // OR keep your existing approach: await page.locator('div#headlessui-menu-item-455', { hasText: '2024' }).click();
     await page.waitForTimeout(1000);
 
-//next
+// next
+console.log("=== Proceeding after birth date ===");
 await page.getByText("Next").click();
 await page.waitForTimeout(1000);
+
 
 //next
 await page.getByText("Next").click();
