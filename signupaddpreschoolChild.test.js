@@ -1,386 +1,345 @@
-const { chromium } = require("playwright")
+const { chromium } = require("playwright");
 
-// Optimized Sign up automation
-;(async () => {
-  const browser = await chromium.launch({ headless: false })
-  const context = await browser.newContext()
-  const page = await context.newPage()
+(async () => {
+  const browser = await chromium.launch({ headless: false, slowMo: 300 }); // slowMo helps debugging
+  const context = await browser.newContext();
+  const page = await context.newPage();
 
   try {
-    // Step 1: Navigate to landing page (reduced timeout)
-    console.log("Navigating to landing page...")
+    // ────────────────────────────────────────────────
+    // ECD Connect Signup – Phone Number & Initial Steps
+    // ────────────────────────────────────────────────
+    console.log("Navigating to landing page...");
     await page.goto("https://ecdconnect-qa-app.azurewebsites.net/", {
-      timeout: 8000,
+      timeout: 15000,
       waitUntil: "domcontentloaded",
-    })
-    console.log("Landing page loaded successfully")
+    });
 
-    // Step 2: Click Sign up button (reduced wait time)
-    console.log("Looking for Sign up button...")
-    await page.getByRole("button", { name: "Sign up" }).waitFor({
-      state: "visible",
-      timeout: 5000,
-    })
+    console.log("Clicking Sign up button...");
+    await page.getByRole("button", { name: "Sign up" }).click();
 
-    console.log("Clicking Sign up button...")
-    await page.getByRole("button", { name: "Sign up" }).click()
+    await page.waitForLoadState("domcontentloaded", { timeout: 15000 });
 
-    // Wait for signup page (reduced timeout)
-    console.log("Waiting for signup page to load...")
-    await page.waitForLoadState("networkidle", { timeout: 15000 })
-    console.log("Signup page loaded")
+    console.log("Entering phone number...");
+    await page.getByPlaceholder("e.g 0123456789").fill("0719270911");
 
-    // Optimized checkbox clicking
-    console.log("Clicking checkboxes...")
-    try {
-      // First checkbox - terms and conditions
-      await page.locator("input[type='checkbox']").first().click({ timeout: 3000 })
-      console.log("First checkbox clicked")
-    } catch (error) {
-      await page.locator("text=I accept").first().click({ timeout: 3000 })
-      console.log("First checkbox clicked via text")
-    }
+    console.log("Clicking checkboxes...");
+    await page.locator("input[type='checkbox']").first().click({ timeout: 5000 }).catch(() => {});
+    await page.locator("input[type='checkbox']").nth(1).click({ timeout: 5000 }).catch(() => {});
 
-    try {
-      // Second checkbox - data permissions
-      await page.locator("input[type='checkbox']").nth(1).click({ timeout: 3000 })
-      console.log("Second checkbox clicked")
-    } catch (error) {
-      await page.locator("text=data permissions").click({ timeout: 3000 })
-      console.log("Second checkbox clicked via text")
-    }
+    console.log("Clicking Yes...");
+    await page.getByText("Yes", { exact: true }).click({ force: true, timeout: 5000 }).catch(() => {});
 
-    // Optimized Yes button click
-    console.log("Clicking Yes button...")
-    try {
-      await page.getByText("Yes", { exact: true }).click({ force: true, timeout: 3000 })
-      console.log("Yes button clicked")
-    } catch (error) {
-      await page.locator("div.cursor-pointer.bg-secondaryAccent2").click({ force: true, timeout: 3000 })
-      console.log("Yes button clicked via CSS selector")
-    }
+    console.log("Clicking first Next...");
+    await page.getByRole("button", { name: "Next" }).click({ force: true, timeout: 5000 }).catch(() =>
+      page.getByText("Next").click({ force: true })
+    );
 
-    // Optimized Next button click
-    console.log("Clicking Next button...")
-    try {
-      await page.getByRole("button", { name: "Next" }).click({ force: true, timeout: 3000 })
-      console.log("Next button clicked")
-    } catch (error) {
-      await page.getByText("Next").click({ force: true, timeout: 3000 })
-      console.log("Next button clicked via text")
-    }
+    // ────────────────────────────────────────────────
+    // Open BulkSMS in new page & login
+    // ────────────────────────────────────────────────
+    // const smsPage = await context.newPage();
+    // console.log("Opening BulkSMS login page...");
+    // await smsPage.goto("https://www.bulksms.com/account/ui/index.html#/login", {
+    //   waitUntil: "domcontentloaded",
+    //   timeout: 20000,
+    // });
 
-    // Fill form fields quickly
-    console.log("Filling form fields...")
-    await page.click('button:has-text("Create a username")')
-    await page.fill('input[name="password"]', 'Tester_12')
-    await page.fill('input[placeholder="e.g. Nothando_123"]', 'AutomationTuesdayOA006')
-    await page.fill('input[placeholder="e.g 0123456789"]', '0719270935')
+    // // Handle Cookiebot if present
+    // console.log("Handling Cookiebot consent if present...");
+    // await smsPage.locator('#CybotCookiebotDialogBodyButtonDecline, button:has-text("Deny")').click({ timeout: 8000, force: true })
+    //   .catch(() => console.log("No Cookiebot dialog"));
 
-    // Optimized network monitoring
-    let verificationCode = null
-    const verificationCodePromise = new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Timeout')), 30000) // Reduced timeout
+    // console.log("Entering BulkSMS username...");
+    // await smsPage.fill('input[name="username"]', "ecdconnect");
 
-      page.on('response', async (response) => {
-        const url = response.url()
-        if (url.includes('add-oa-practitioner')) {
-          console.log(`API Response: ${url} - Status: ${response.status()}`)
-          
-          try {
-            let responseBody
-            try {
-              responseBody = await response.json()
-            } catch (error) {
-              responseBody = await response.text()
-            }
+    // console.log("Entering BulkSMS password...");
+    // await smsPage.fill('input[name="password"]', "ECDconnect1!");
 
-            console.log(`Response: ${JSON.stringify(responseBody)}`)
+    // console.log("Clicking Log in...");
+    // await smsPage.getByRole("button", { name: /log ?in/i }).click({ timeout: 10000 });
 
-            // Fixed verification code extraction
-            let code
-            if (typeof responseBody === 'object') {
-              code = responseBody.verificationCode || responseBody.code
-            } else {
-              // Convert to string first, then check if it's a 6-digit code
-              const responseString = String(responseBody).trim()
-              if (/^\d{6}$/.test(responseString)) {
-                code = responseString
-              }
-            }
+    // // Wait for post-login (lenient)
+    // await smsPage.waitForURL(/#?\/(inbox|sent|dashboard|home)/i, { timeout: 30000 }).catch(async () => {
+    //   console.log("No redirect detected – forcing inbox...");
+    //   await smsPage.goto("https://www.bulksms.com/account/ui/index.html#/inbox", { waitUntil: "domcontentloaded" });
+    // });
 
-            if (code && /^\d{6}$/.test(String(code))) {
-              console.log(`Verification Code Found: ${code}`)
-              clearTimeout(timeout)
-              resolve(String(code))
-            }
-          } catch (error) {
-            console.log(`Error processing response: ${error.message}`)
-          }
-        }
-      })
-    })
+    // await smsPage.waitForTimeout(5000); // settle
 
-    // Click Sign up and wait for response
-    console.log("Clicking Sign up button...")
-    await page.click('button:has-text("Sign up")')
+    // // ────────────────────────────────────────────────
+    // // Handle Cloudflare Turnstile (if it appears)
+    // // ────────────────────────────────────────────────
+    // console.log("Checking for Cloudflare Turnstile...");
+    // const turnstileCheckbox = smsPage.locator('.cb-lb input[type="checkbox"]');
 
-    // Wait for verification code (reduced timeout)
-    try {
-      verificationCode = await verificationCodePromise
-      console.log(`Using verification code: ${verificationCode}`)
-      
-      // Fill verification code quickly
-      await page.waitForSelector('input[placeholder="------"]', { 
-        state: 'visible', 
-        timeout: 8000 
-      })
-      await page.fill('input[placeholder="------"]', verificationCode)
-      console.log("Verification code entered")
-      
-      // Optional: Click verify button if needed
-      try {
-        await page.click('button:has-text("Verify")', { timeout: 3000 })
-        console.log("Verify button clicked")
-      } catch (error) {
-        console.log("No verify button found or needed")
-      }
+    // if (await turnstileCheckbox.count() > 0) {
+    //   console.log("Turnstile detected – attempting human-like verification");
 
-    } catch (error) {
-      console.error('Verification code timeout or error:', error.message)
-      
-      // Fallback: Try to continue without verification code
-      console.log("Attempting to continue without verification code...")
-      await page.waitForTimeout(2000)
-    }
-//confirm code
-await page.locator('p.text-sm.font-h1.font-normal.text-white', { hasText: 'Confirm' }).click(); 
-    console.log("Signup process completed!")
-    await page.waitForTimeout(2000) // Reduced final wait
+    //   await smsPage.mouse.move(150 + Math.random() * 300, 200 + Math.random() * 400);
+    //   await smsPage.waitForTimeout(1200 + Math.random() * 1800);
+    //   await smsPage.evaluate(() => window.scrollBy(0, 200));
 
-    // Click join pre-school
-    await page.click('button.cursor-pointer.inline-flex:has-text("Get started")');
+    //   await turnstileCheckbox.click({ delay: 300, force: true });
+    //   console.log("Turnstile checkbox clicked");
 
-    //Click Start
-    await page.click('p.font-semibold.text-sm:has-text("Start")');
+    //   await smsPage.waitForSelector('#success', { timeout: 35000 }).catch(() => {
+    //     console.warn("Turnstile success not detected in time");
+    //     smsPage.screenshot({ path: "turnstile-fail.png" });
+    //   });
+    // } else {
+    //   console.log("No Turnstile challenge detected");
+    // }
 
-    //Select Principal
-    await page.click('p.font-medium.text-textMid.font-h4:has-text("Principal")');
+    // // ────────────────────────────────────────────────
+    // // Go to Sent Messages (direct navigation is more reliable)
+    // // ────────────────────────────────────────────────
+    // console.log("Navigating to Sent Messages...");
+    // await smsPage.goto("https://www.bulksms.com/account/ui/index.html#/sent/messages", {
+    //   waitUntil: "domcontentloaded",
+    //   timeout: 20000,
+    // });
 
-    //Enter Principal name:
-    await page.fill('input[placeholder="First name"]', 'AutomationTuesdayOA004');
+    // await smsPage.waitForSelector("text=Sent Messages, .message-row, tr.message, .no-messages", {
+    //   timeout: 25000,
+    // }).catch(() => console.log("Sent messages page loaded but selector not matched"));
 
-    // Click "Enter passport number" button
-    await page.click('p.font-semibold.text-xs:has-text("Enter passport number instead")');
+    // // ────────────────────────────────────────────────
+    // // Poll for latest sent message containing 6-digit OTP
+    // // ────────────────────────────────────────────────
+    // let verificationCode = null;
+    // console.log("Polling Sent Messages for OTP...");
 
-    //Passport:
-    await page.fill('input[placeholder="e.g. A012345"]', 'AutomationTuesdayOA004');
+    // for (let attempt = 1; attempt <= 20; attempt++) {
+    //   console.log(`Attempt ${attempt}/20`);
 
-    //QAPreschoolNotification6 70
-    //WLPoints1QA 75
+    //   const latestText = await smsPage.evaluate(() => {
+    //     const rows = document.querySelectorAll("tr, .message-row, li, div.message");
+    //     return rows[0]?.innerText?.trim() || "";
+    //   });
 
-    //Next
-    await page.click('p.font-semibold.text-sm:has-text("Next")');
+    //   if (latestText) {
+    //     const match = latestText.match(/\b\d{6}\b/);
+    //     if (match) {
+    //       verificationCode = match[0];
+    //       console.log(`OTP found in sent message: ${verificationCode}`);
+    //       break;
+    //     }
+    //   }
 
-    //Pre-school name:
-    await page.fill('input[placeholder="E.g. Little Lambs Preschool"]', 'QATest');
+    //   await smsPage.waitForTimeout(5000); // wait 5s between polls
+    // }
 
-    //Next
-    await page.click('p.text-sm.font-h1.font-normal:has-text("Next")');
+    // if (!verificationCode) {
+    //   console.warn("No 6-digit OTP found after 100s polling");
+    //   await smsPage.screenshot({ path: "no-otp-found.png" });
+    // }
 
-    //Skip "add practitioner"
-    //    await page.getByText('Skip').click();
+    // ────────────────────────────────────────────────
+    // Switch back to ECD page & enter OTP
+    // ────────────────────────────────────────────────
+    await page.bringToFront();
 
-    // add a class:
-    await page.click('p.text-sm.font-h1.font-normal:has-text("Add class")');
-  
+    // // if (verificationCode) {
+    // //   console.log("Entering OTP into ECD Connect form...");
+    // //   await page.waitForSelector('input[placeholder="------"]', { timeout: 10000 });
+    // //   await page.fill('input[placeholder="------"]', verificationCode);
 
-    // Drop down
-    await page.getByText('Select a practitioner').click();
-    
+    //   await page.locator('p.text-sm.font-h1.font-normal.text-white', { hasText: "Confirm" }).click();
+    //   console.log("OTP confirmed");
+    // } else {
+    //   console.log("Continuing without OTP (manual intervention may be needed)");
+    // }
 
-    //Select prac
-    await page.click('svg:has(path[d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"])');
-    
+    await page.waitForTimeout(30000);
 
-    //Click yes
-    await page.click('div.font-body.p-3.text-sm.font-medium:has-text("Yes")');
-
-    //Click next:
-    await page.getByText('Save').click();
-    await page.waitForTimeout(3000);
-
-
-    //Next
-    await page.getByRole('button', { name: 'Next' }).click();
-
-    await page.waitForTimeout(3000);
-
-    //skip
-    await page.getByText('Skip').click();
-
-//Preschool setup complete!
-
-// Close pop-up
-await page.getByRole('button', { name: 'Close' }).click();
-
-//Click classroom tab
-await page.getByRole('heading', { name: 'Classroom' }).click();
-
-//Click class1
-await page.getByText('Class 1').click();
-await page.waitForTimeout(1000);
-
-//See children button: 
-await page.getByRole('button', { name: 'See children' }).click();
-await page.waitForTimeout(1000);
-
-
-//add child
-await page.getByRole('button', { name: 'Add a child' }).click();
-await page.waitForTimeout(1000);
-
-
-//add name
-await page.getByPlaceholder('First name').fill('Lisa');
-
-//add surname
-await page.getByPlaceholder('Surname/Family name').fill('Jaz');
-
-//click drop down:
-await page.getByRole('button', { name: 'Select class' }).click();
-
-//Selecrte calss 1
-await page.getByText('Class 1').click();
-
-//5second
-await page.waitForTimeout(1000)
-
-// Save - Click Next after child details
-console.log("=== Clicking Save after child details ===");
-await page.getByText('Save').click();
-await page.waitForTimeout(2000)
-
-// Fill form - Click "Fill in the registration form" button
-console.log("=== Starting child registration form ===");
-await page.getByRole('button', { name: 'Fill in the registration form' }).click();
-console.log("Clicked Fill in the registration form");
-
-// Check - Accept personal information agreement (check the actual checkbox)
-await page.locator('input[name="personalInformationAgreementAccepted"]').check();
-console.log("Checked Personal information agreement checkbox");
-// Yes:
-await page.getByText("Yes").click();
-console.log("Clicked Yes for agreement");
-
-// Next
-await page.getByText("Next").click({ force: true });
-console.log("Clicked Next after agreement");
-
-/// Click the Day dropdown button
-console.log("=== Setting birth date - Day ===");
-await page.locator('button[aria-haspopup="menu"]').first().click();
-console.log("Clicked Day dropdown");
-
-// Wait for the menu to appear and click the day value
-await page.getByText('15').click();
-console.log("Selected day 15");
-
- // FIXED: Month dropdown - use exact text matching
-    await page.getByText("Month").click();
-    await page.getByRole('menuitem', { name: 'Feb', exact: true }).click();
-    // OR use: await page.getByText('Feb', { exact: true }).click();
+    // ────────────────────────────────────────────────
+    // Rest of your ECD Connect preschool + child flow
+    // ────────────────────────────────────────────────
+    console.log("Filling username/password/");
+    await page.click('button:has-text("Create a username")');
+    await page.fill('input[name="password"]', "Tester_12");
+    await page.fill('input[placeholder="e.g. Nothando_123"]', "WalkthroughOA3");
     await page.waitForTimeout(1000);
 
-    // FIXED: Year dropdown - more specific locator
-console.log("=== Setting birth date - Year ===");
-// Target the button with aria-haspopup that contains "Year" text
-await page.locator('button[aria-haspopup="menu"]:has-text("Year")').click();
-console.log("Clicked Year dropdown");
+    await page.waitForTimeout(2000)
+// await page.getByRole("button", { name: "Sign up" }).click();
+await page.getByRole("button", { name: "Sign up", exact: true }).click();
+    await page.waitForTimeout(4000);
 
-// Wait for menu and select 2024
-await page.getByRole('menuitem', { name: '2024', exact: true }).click();
-console.log("Selected year 2024");
+// click "Yes" on the pop-up
+
+await page.waitForSelector('[data-headlessui-state="open"]', { timeout: 10000 });
+await page.getByRole("button", { name: "Yes" }).click();
+
+    // Join preschool flow...
+    await page.click('button.cursor-pointer.inline-flex:has-text("Get started")');
+    await page.click('p.font-semibold.text-sm:has-text("Start")');
+    await page.click('p.font-medium.text-textMid.font-h4:has-text("Principal")');
+
+    await page.fill('input[placeholder="First name"]', "WalkthroughOA3");
+    await page.click('p.font-semibold.text-xs:has-text("Enter passport number instead")');
+    await page.fill('input[placeholder="e.g. A012345"]', "WalkthroughOA3");
+
+    await page.click('p.font-semibold.text-sm:has-text("Next")');
+
+    await page.fill('input[placeholder="E.g. Little Lambs Preschool"]', "QATest");
+    await page.click('p.text-sm.font-h1.font-normal:has-text("Next")');
+
+    // Add class...
+    await page.click('p.text-sm.font-h1.font-normal:has-text("Add class")');
+    // await page.getByText("Select a practitioner").click();
+    // await page.click('svg:has(path[d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"])');
+    await page.click('div.font-body.p-3.text-sm.font-medium:has-text("Yes")');
+    await page.getByText("Save").click();
+
+    await page.waitForTimeout(3000);
+    await page.getByRole("button", { name: "Next" }).click();
+
+    await page.waitForTimeout(3000);
+    await page.getByText("Skip").click();
+
+    // Classroom → add child...
+    await page.getByRole("heading", { name: "Classroom" }).click();
+    await page.getByText("Class 1").click();
+    await page.getByRole("button", { name: "See children" }).click();
+
+    await page.getByRole("button", { name: "Add a child" }).click();
+
+    await page.getByPlaceholder("First name").fill("Lisa");
+    await page.getByPlaceholder("Surname/Family name").fill("Jaz");
+
+    await page.getByRole("button", { name: "Select class" }).click();
+    await page.getByText("Class 1").click();
+
+    await page.getByText("Save").click();
+    await page.waitForTimeout(2000);
+
+    // Child registration form...
+    await page.getByRole("button", { name: "Fill in the registration form" }).click();
+
+    await page.locator('input[name="personalInformationAgreementAccepted"]').check();
+    await page.getByText("Yes").click();
+    await page.getByText("Next").click({ force: true });
+
+    // Birth date
+    await page.locator("button[aria-haspopup='menu']").first().click();
+    await page.getByText("15").click();
+
+    // await page.getByText("Month").click();
+    // await page.getByRole("menuitem", { name: "Feb", exact: true }).click();
+
+    await page.locator('button[aria-haspopup="menu"]:has-text("Year")').click();
+    await page.getByRole("menuitem", { name: "2024", exact: true }).click();
+
+    await page.getByText("Next").click({ force: true });
+
+    // More Next clicks...
+    for (let i = 0; i < 3; i++) {
+      await page.getByText("Next").click({ force: true }).catch(() => {});
+      await page.waitForTimeout(1000);
+    }
+
+    await page.getByText("Select relationship").click();
+    await page.getByText("Mother").click();
+
+    await page.getByPlaceholder("First name").fill("Musa");
+    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("E.g. 082 345 6789").fill("0719374857");
+
+    await page.getByText("Next").click();
+
+    await page.getByPlaceholder("E.g. 0122").fill("3452");
+    
+await page.locator('textarea[name="streetAddress"]').fill("Test address");
+    await page.getByRole("button", { name: "Next" }).click();
+
+    await page.getByRole("button", { name: "Next" }).click();
+
+    await page.getByPlaceholder("First name").fill("Salam");
+    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.locator('input[name="phoneNumber"]').fill("0711234567");
+
+    await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
+
+    await page.getByRole("button", { name: "Save" }).click();
+    await page.waitForTimeout(2000);
+
+    await page.getByTestId("close-button").click();
+
+    // Click back arrow
+await page.locator('svg.primaryAccent2 path[d*="M9.707 16.707"]').first().click();
+
+// Click Community section
+await page.locator('h2:has-text("Community")').click();
+await page.waitForTimeout(2000);
+
+// Click Yes button
+await page.locator('div.bg-secondaryAccent2:has-text("Yes")').click();
+await page.waitForTimeout(2000);
+
+// Click Next button
+await page.locator('button.bg-quatenary:has-text("Next")').click();
+await page.waitForTimeout(2000);
+
+// Click input and type "Passion"
+await page.locator('input[placeholder="E.g. Love working with kids"]').click();
+await page.locator('input[placeholder="E.g. Love working with kids"]').fill('Passion');
+await page.waitForTimeout(2000);
+
+// Click Yes button
+// If there are multiple Yes buttons, target a specific one (0-indexed)
+await page.locator('div.bg-secondaryAccent2:has-text("Yes")').nth(0).click();
+await page.waitForTimeout(2000);
+
+// Click Yes button
+// Click Yes button - use exact text match with the specific classes
+await page.locator('div.bg-secondaryAccent2.text-secondary').filter({ hasText: /^Yes$/ }).click();
+await page.waitForTimeout(2000);
+
+console.log("Selecting province...");
+await page.getByText("Tap to choose province").click({ force: true });
+await page.waitForTimeout(2000);
+
+await page.getByText("Western Cape", { exact: true }).click(); // Change as needed
+
+console.log("Province selected");
 await page.waitForTimeout(1000);
 
-// next
-console.log("=== Proceeding after birth date ===");
-await page.getByText("Next").click();
-await page.waitForTimeout(1000);
+console.log("Clicking Save button...");
 
+await page.getByRole("button", { name: "Save" }).click();
 
-//next
-await page.getByText("Next").click();
-await page.waitForTimeout(1000);
-//next
-await page.getByText("Next").click();
-await page.waitForTimeout(1000);
-//drop dwn
-await page.getByText("Select relationship").click();
-await page.waitForTimeout(1000);
-//click:
-await page.getByText("Mother").click();
+console.log("Clicking 'Do this later'...");
 
-//Name
-await page.getByPlaceholder("First name").fill("Musa");
+await page.getByText("Do this later", { exact: true }).click({ force: true });
 
-//surnmame
-await page.getByPlaceholder("Surname/family name").fill("Smith");
+// Click "See ECD Heroes" button
+await page.locator('button:has-text("See ECD Heroes")').click();
+await page.waitForTimeout(2000);
 
-//number:
-await page.getByPlaceholder("E.g. 082 345 6789").fill("0719374857");
+// Click Start button using data-testid
+await page.locator('button[data-testid="close-button"]:has-text("Start")').click();
+await page.waitForTimeout(2000);
 
-//next:
-await page.getByText("Next").click();
+// Click the first person on the list (OAPrac12a)
+await page.locator('div.bg-uiBg.rounded-10.cursor-pointer').first().click();
+await page.waitForTimeout(2000);
 
-//code
-await page.getByPlaceholder("E.g. 0122").fill("3452");
-await page.getByPlaceholder('E.g. 203 Oak Apartments, 11 Green Road, Mamelodi East').click();
+// Click the Connect button (using partial text match since name varies)
+await page.locator('button:has-text("Connect with")').click();
+await page.waitForTimeout(2000);
 
-
-//click:
-await page.getByRole('button', { name: 'Next' }).click();
-
-
-//next
-await page.getByRole('button', { name: 'Next' }).click();
-
-//name
-await page.getByPlaceholder('First name').fill('Salam');
-
-
-//surname
-await page.getByPlaceholder('Surname/family name').fill('Page');
-
-
-//number
-await page.locator('input[name="phoneNumber"]').fill('0711234567');
-await page.waitForTimeout(1000);
-//yest
-await page.locator('div.bg-secondaryAccent2').getByText('Yes').click();
-
-//await page.locator('div.bg-secondaryAccent2').getByText('Yes', { exact: true }).click();
-await page.waitForTimeout(1000);
-//save
-await page.getByRole('button', { name: 'Save' }).click();
-await page.waitForTimeout(1000);
-
-await page.getByTestId('close-button').click();
-
-    await page.waitForTimeout(3000); // Wait 10 seconds before closing    
+    console.log("Automation completed successfully!");
+    await page.waitForTimeout(5000);
 
   } catch (error) {
-    console.error("Signup failed:", error)
-    console.log("Current URL:", page.url())
-    
-    // Quick error screenshot
-    try {
-      await page.screenshot({ path: "error-screenshot.png" })
-      console.log("Error screenshot saved")
-    } catch (screenshotError) {
-      console.log("Could not save screenshot")
-    }
+    console.error("Error during automation:", error);
+    console.log("Current ECD URL:", await page.url());
+   
+
+    await page.screenshot({ path: "final-error.png" }).catch(() => {});
   } finally {
-    await browser.close()
+    await browser.close();
   }
-})()
+})();

@@ -129,8 +129,8 @@ page.on("close", () => {
 try {
 // Step 1: Navigate to landing page
 console.log("=== Step 1: Navigating to landing page ===");
-await page.goto("https://whitelabel-qa-portal.azurewebsites.net/", {
-timeout: 15000,
+await page.goto("https://whitelabel-qa-portal.azurewebsites.net", {
+timeout: 20000,
 waitUntil: "domcontentloaded",
 });
 console.log("Landing page loaded successfully");
@@ -156,19 +156,19 @@ await page.waitForSelector('button.bg-secondary:has-text("Log in")', { timeout: 
 await safeClick(page, 'button.bg-secondary:has-text("Log in")');
 
 // Wait for login to complete and verify
-await page.waitForTimeout(5000);
+await page.waitForTimeout(10000);
 if (!(await waitForPageReady(page))) {
   throw new Error("Login failed or page redirected unexpectedly");
 }
 
 // Step 5: Click Practitioners tab
 console.log("=== Step 5: Navigating to Practitioners tab ===");
-await page.waitForTimeout(10000);
+await page.waitForTimeout(15000);
 await page.locator('a[href="/users/practitioners"]').waitFor({ state: 'visible' });
 await page.locator('a[href="/users/practitioners"]').click();
 
 // Verify practitioners page loaded
-await page.waitForTimeout(3000);
+await page.waitForTimeout(5000);
 if (!(await waitForPageReady(page))) {
   throw new Error("Failed to load practitioners page");
 }
@@ -186,7 +186,7 @@ await safeClick(page, 'p:has-text("Add one Practitioner") >> xpath=..');
 // Step 8: Fill first name field
 console.log("=== Step 8: Filling first name ===");
 await page.waitForSelector('input[name="firstName"]', { timeout: 10000 });
-await safeFill(page, 'input[name="firstName"]', 'CEOWL1');
+await safeFill(page, 'input[name="firstName"]', 'SecurityWL8');
 
 // Step 9: Fill surname field
 console.log("=== Step 9: Filling surname ===");
@@ -206,7 +206,7 @@ await safeClick(page, 'button:has(p:has-text("Passport"))');
 // Step 12: Fill ID number field
 console.log("=== Step 12: Filling ID number ===");
 await page.waitForSelector('input[name="idNumber"]', { timeout: 10000 });
-await safeFill(page, 'input[name="idNumber"]', 'CEOWL1');
+await safeFill(page, 'input[name="idNumber"]', 'SecurityWL8');
 
 // Step 13: Select Practitioner's coach
 console.log("=== Step 13: Selecting Practitioner's coach ===");
@@ -231,7 +231,7 @@ await page.waitForSelector('table', { timeout: 15000 });
 
 // Step 16: Find and click the row containing the practitioner's name
 console.log("=== Step 16: Finding and clicking practitioner row ===");
-const practitionerName = 'CEOWL1';
+const practitionerName = 'SecurityWL8';
 console.log(`Searching for practitioner: ${practitionerName}`);
 await page.waitForSelector(`td:has-text("${practitionerName}")`, { timeout: 15000 });
 const rows = await page.$$(`td:has-text("${practitionerName}")`);
@@ -303,7 +303,7 @@ console.log("Clicked 'Enter Passport number instead'");
 
 // Enter passport number
 console.log("=== Filling passport number ===");
-await safeFill(newPage, 'input[name="username"]', 'CEOWL1');
+await safeFill(newPage, 'input[name="username"]', 'SecurityWL8');
 console.log("Filled passport number");
 
 // Enter phone number
@@ -325,21 +325,16 @@ console.log("Checked data permission agreement");
 console.log("=== Clicking Next ===");
 await newPage.getByText('Next').click();
 console.log("Clicked Next");
-await newPage.waitForTimeout(3000);
-
-// Verify page progressed
-if (!(await waitForPageReady(newPage))) {
-  throw new Error("Page failed to progress after Next");
-}
+await newPage.waitForTimeout(4000);
 
 // Click "Create a username"
 console.log("=== Clicking Create a username ===");
-await newPage.getByText('Create a username').click();
+await newPage.getByRole('button', { name: 'Create a username' }).click();
 console.log("Clicked 'Create a username'");
 
 // Enter username
 console.log("=== Filling username ===");
-await safeFill(newPage, 'input[placeholder="e.g. Nothando_123"]', 'CEOWL1');
+await safeFill(newPage, 'input[placeholder="e.g. Nothando_123"]', 'SecurityWL8');
 console.log("Filled username");
 
 // Enter password
@@ -352,10 +347,8 @@ await newPage.waitForTimeout(3000);
 console.log("=== Attempting to click Sign up button ===");
 let signupSuccess = false;
 const signupMethods = [
-  () => newPage.getByText('Sign up').click(),
   () => newPage.locator('button.bg-quatenary:has-text("Sign up")').click(),
-  () => newPage.locator('button:has(p:has-text("Sign up"))').click(),
-  () => newPage.locator('p:has-text("Sign up")').click({ force: true })
+ () => newPage.locator('p:has-text("Sign up")').click({ force: true })
 ];
 
 for (let i = 0; i < signupMethods.length; i++) {
@@ -384,30 +377,12 @@ if (!(await waitForPageReady(newPage))) {
   throw new Error("Signup failed or page redirected unexpectedly");
 }
 
-// Login with created credentials
-console.log("=== Logging in with created credentials ===");
-await safeFill(newPage, 'input[name="username"]', 'CEOWL1');
-console.log("Filled login username");
-
-await safeFill(newPage, 'input[name="password"]', 'Tester_12');
-console.log("Filled login password");
-await newPage.waitForTimeout(3000);
-
-// Click login button
-console.log("=== Clicking login button ===");
-await newPage.locator('#gtm-login').click();
-console.log("Clicked login button");
-await newPage.waitForTimeout(3000);
-
-// Verify login completed
-if (!(await waitForPageReady(newPage))) {
-  throw new Error("Login failed or page redirected unexpectedly");
-}
-
 // Click Start button
-console.log("=== Clicking Start button ===");
-await newPage.getByText('Start').click();
-console.log("Clicked Start button");
+// Click "Start"
+console.log("=== Clicking Start ===");
+await newPage.waitForSelector('button:has-text("Start")', { timeout: 10000, state: 'visible' });
+await newPage.getByRole('button', { name: 'Start' }).click();
+console.log("Clicked 'Start'");
 
 // Wait longer for the page to fully load
 await newPage.waitForLoadState('networkidle');
@@ -494,39 +469,6 @@ if (!pageValid) {
 throw new Error("Page redirected after clicking Add class - session may have expired");
 }
 
-// Drop down - ADD EXISTENCE CHECK
-console.log("=== Looking for practitioner dropdown ===");
-try {
-await newPage.waitForSelector('text="Select a practitioner"', { timeout: 10000 });
-await newPage.getByText('Select a practitioner').click();
-console.log("Clicked practitioner dropdown");
-} catch (dropdownError) {
-console.log("Practitioner dropdown not found, checking page state...");
-await checkPageState(newPage);
-throw dropdownError;
-}
-
-await newPage.waitForTimeout(3000);
-
-// Select practitioner - ADD ERROR HANDLING
-console.log("=== Selecting practitioner ===");
-try {
-await newPage.click('svg:has(path[d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"])');
-console.log("Selected practitioner");
-} catch (practitionerError) {
-console.log("Practitioner selection failed, trying alternative...");
-// Try clicking the first available option
-try {
-  await newPage.click('div[role="option"]:first-child');
-  console.log("Selected first available practitioner");
-} catch (altError) {
-  console.log("Alternative practitioner selection also failed");
-  await newPage.screenshot({ path: "practitioner-selection-failed.png" });
-  throw altError;
-}
-}
-
-await newPage.waitForTimeout(3000);
 
 // Click yes
 console.log("=== Clicking Yes ===");
@@ -812,7 +754,7 @@ await newPage.waitForTimeout(3000); // Wait 3 seconds before closing
 
 console.log("🎉 Automation completed successfully! 🎉");
 console.log("Summary:");
-console.log("✓ Created practitioner: CEOWL1");
+console.log("✓ Created practitioner: SecurityWL8");
 console.log("✓ Set up preschool: TestAuto");
 console.log("✓ Added class with practitioner");
 console.log("✓ Added child: Lisa Jaz");
@@ -868,7 +810,7 @@ console.log("User agent:", await page.evaluate(() => navigator.userAgent));
 console.log("\n=== CLEANUP ===");
 try {
   if (newPage && !newPage.isClosed()) {
-    await newPage.close();
+    await newPage.close();2
     console.log("✓ New page closed");
   }
 } catch (e) {

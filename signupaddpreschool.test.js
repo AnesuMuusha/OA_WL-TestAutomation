@@ -74,7 +74,7 @@ const { chromium } = require("playwright")
     console.log("Filling form fields...")
     await page.click('button:has-text("Create a username")')
     await page.fill('input[name="password"]', 'Tester_12')
-    await page.fill('input[placeholder="e.g. Nothando_123"]', 'CEO2')
+    await page.fill('input[placeholder="e.g. Nothando_123"]', 'CEO21')
     await page.fill('input[placeholder="e.g 0123456789"]', '0719270935')
 
     // Optimized network monitoring
@@ -122,9 +122,10 @@ const { chromium } = require("playwright")
     })
 
     // Click Sign up and wait for response
+    await page.waitForTimeout(2000)
     console.log("Clicking Sign up button...")
     await page.click('button:has-text("Sign up")')
-
+await page.waitForTimeout(2000)
     // Wait for verification code (reduced timeout)
     try {
       verificationCode = await verificationCodePromise

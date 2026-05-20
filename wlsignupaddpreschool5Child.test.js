@@ -129,7 +129,7 @@ page.on("close", () => {
 try {
 // Step 1: Navigate to landing page
 console.log("=== Step 1: Navigating to landing page ===");
-await page.goto("http://portal-whitelabel.ecdconnect.co.za/", {
+await page.goto("https://whitelabel-qa-portal.azurewebsites.net/", {
 timeout: 15000,
 waitUntil: "domcontentloaded",
 });
@@ -186,7 +186,7 @@ await safeClick(page, 'p:has-text("Add one Practitioner") >> xpath=..');
 // Step 8: Fill first name field
 console.log("=== Step 8: Filling first name ===");
 await page.waitForSelector('input[name="firstName"]', { timeout: 10000 });
-await safeFill(page, 'input[name="firstName"]', 'SecurityWLProd3');
+await safeFill(page, 'input[name="firstName"]', 'RegressionWL005');
 
 // Step 9: Fill surname field
 console.log("=== Step 9: Filling surname ===");
@@ -206,9 +206,10 @@ await safeClick(page, 'button:has(p:has-text("Passport"))');
 // Step 12: Fill ID number field
 console.log("=== Step 12: Filling ID number ===");
 await page.waitForSelector('input[name="idNumber"]', { timeout: 10000 });
-await safeFill(page, 'input[name="idNumber"]', 'SecurityWLProd3');
+await safeFill(page, 'input[name="idNumber"]', 'RegressionWL005');
 
 // Step 13: Select Practitioner's coach
+
 console.log("=== Step 13: Selecting Practitioner's coach ===");
 await page.waitForSelector('label:has-text("Practitioner\'s coach")', { timeout: 50000 });
 await safeClick(page, 'label:has-text("Practitioner\'s coach")');
@@ -231,7 +232,7 @@ await page.waitForSelector('table', { timeout: 15000 });
 
 // Step 16: Find and click the row containing the practitioner's name
 console.log("=== Step 16: Finding and clicking practitioner row ===");
-const practitionerName = 'SecurityWLProd3';
+const practitionerName = 'RegressionWL005';
 console.log(`Searching for practitioner: ${practitionerName}`);
 await page.waitForSelector(`td:has-text("${practitionerName}")`, { timeout: 15000 });
 const rows = await page.$$(`td:has-text("${practitionerName}")`);
@@ -303,7 +304,7 @@ console.log("Clicked 'Enter Passport number instead'");
 
 // Enter passport number
 console.log("=== Filling passport number ===");
-await safeFill(newPage, 'input[name="username"]', 'SecurityWLProd3');
+await safeFill(newPage, 'input[name="username"]', 'RegressionWL005');
 console.log("Filled passport number");
 
 // Enter phone number
@@ -334,7 +335,7 @@ console.log("Clicked 'Create a username'");
 
 // Enter username
 console.log("=== Filling username ===");
-await safeFill(newPage, 'input[placeholder="e.g. Nothando_123"]', 'SecurityWLProd3');
+await safeFill(newPage, 'input[placeholder="e.g. Nothando_123"]', 'RegressionWL005');
 console.log("Filled username");
 
 // Enter password
@@ -915,7 +916,7 @@ await newPage.waitForTimeout(3000); // Wait 3 seconds before closing
 
 console.log("🎉 Automation completed successfully! 🎉");
 console.log("Summary:");
-console.log("✓ Created practitioner: SecurityWLProd3");
+console.log("✓ Created practitioner: RegressionWL005");
 console.log("✓ Set up preschool: TestAuto");
 console.log("✓ Added class with practitioner");
 console.log("✓ Added child: Lisa Jaz");
