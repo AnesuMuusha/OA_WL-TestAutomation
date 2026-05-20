@@ -10,7 +10,7 @@ const { chromium } = require("playwright");
     // ECD Connect Signup – Phone Number & Initial Steps
     // ────────────────────────────────────────────────
     console.log("Navigating to landing page...");
-    await page.goto("https://ecdconnect-qa-app.azurewebsites.net/", {
+    await page.goto("https://app.staging.ecdconnect.co.za/", {
       timeout: 15000,
       waitUntil: "domcontentloaded",
     });
@@ -44,7 +44,7 @@ const { chromium } = require("playwright");
     console.log("Filling username/password/");
     await page.click('button:has-text("Create a username")');
     await page.fill('input[name="password"]', "Tester_12");
-    await page.fill('input[placeholder="e.g. Nothando_123"]', "RegressionOA007");
+    await page.fill('input[placeholder="e.g. Nothando_123"]', "SecurityOAStaging2");
     await page.waitForTimeout(1000);
 
     await page.waitForTimeout(2000)
@@ -62,9 +62,9 @@ await page.getByRole("button", { name: "Yes" }).click();
     await page.click('p.font-semibold.text-sm:has-text("Start")');
     await page.click('p.font-medium.text-textMid.font-h4:has-text("Principal")');
 
-    await page.fill('input[placeholder="First name"]', "RegressionOA007");
+    await page.fill('input[placeholder="First name"]', "SecurityOAStaging2");
     await page.click('p.font-semibold.text-xs:has-text("Enter passport number instead")');
-    await page.fill('input[placeholder="e.g. A012345"]', "RegressionOA007");
+    await page.fill('input[placeholder="e.g. A012345"]', "SecurityOAStaging2");
 
     await page.click('p.font-semibold.text-sm:has-text("Next")');
 
@@ -549,3 +549,4 @@ await page.getByRole("button", { name: "Save" }).click();
     await browser.close();
   }
 })();
+

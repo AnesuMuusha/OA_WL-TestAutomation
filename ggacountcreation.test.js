@@ -65,20 +65,35 @@ const { chromium } = require("playwright")
     await page.click('a[href="/users"]')
     console.log("Clicked Users button")
 
-    await page.click('a[href="/users/health-care-worker"]');
+    await page.click('a[href="/users/health-care-worker"]')
     console.log("Clicked CHW button")
 
-    await page.click('text=Add CHWs');
+    await page.click("text=Add CHWs")
     console.log("Clicked ADD CHW button")
 
-await page.click('button:has-text("Add one CHW")');
+    await page.click('button:has-text("Add one CHW")')
     console.log("Clicked Add one CHW button")
     await page.waitForTimeout(5000)
 
     // Click and type in the firstName field
-await page.click('input[name="firstName"]');
-await page.type('input[name="firstName"]', 'AutoFirstName');
+    await page.click('input[name="firstName"]')
+    await page.type('input[name="firstName"]', "AutoFirstName2")
+    console.log("Entered firstName: AutoFirstName2")
 
+    await page.click('input[name="surname"]')
+    await page.type('input[name="surname"]', "Kelly")
+    console.log("Entered surname: Kelly")
+
+     await page.fill('input[name="phoneNumber"]', "0834071970")
+  console.log("Filled phone number: 0834071970")
+
+   // Click on clinic dropdown - adjust selector if needed based on actual HTML structure
+  await page.click('select[name="clinic"]')
+  console.log("Clicked clinic dropdown")
+
+  // Select "Mzanzi Clinic" by value
+  await page.selectOption('select[name="clinic"]', "f6f7fa28-2455-4e1f-b13a-28019db30663")
+  console.log("Selected clinic: Mzanzi Clinic")
 
     // Step 6: Take a screenshot after login attempt
     await page.screenshot({ path: "post_login.png", fullPage: true })
