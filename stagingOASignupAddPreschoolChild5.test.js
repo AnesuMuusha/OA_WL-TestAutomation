@@ -11,7 +11,7 @@ const { chromium } = require("playwright");
     // ────────────────────────────────────────────────
     console.log("Navigating to landing page...");
     await page.goto("https://app.staging.ecdconnect.co.za/", {
-      timeout: 15000,
+      timeout: 60000,
       waitUntil: "domcontentloaded",
     });
 
@@ -44,7 +44,7 @@ const { chromium } = require("playwright");
     console.log("Filling username/password/");
     await page.click('button:has-text("Create a username")');
     await page.fill('input[name="password"]', "Tester_12");
-    await page.fill('input[placeholder="e.g. Nothando_123"]', "SecurityOAStaging2");
+    await page.fill('input[placeholder="e.g. Nothando_123"]', "Ben");
     await page.waitForTimeout(1000);
 
     await page.waitForTimeout(2000)
@@ -62,9 +62,9 @@ await page.getByRole("button", { name: "Yes" }).click();
     await page.click('p.font-semibold.text-sm:has-text("Start")');
     await page.click('p.font-medium.text-textMid.font-h4:has-text("Principal")');
 
-    await page.fill('input[placeholder="First name"]', "SecurityOAStaging2");
+    await page.fill('input[placeholder="First name"]', "Ben");
     await page.click('p.font-semibold.text-xs:has-text("Enter passport number instead")');
-    await page.fill('input[placeholder="e.g. A012345"]', "SecurityOAStaging2");
+    await page.fill('input[placeholder="e.g. A012345"]', "Ben");
 
     await page.click('p.font-semibold.text-sm:has-text("Next")');
 
@@ -94,8 +94,8 @@ await page.getByRole("button", { name: "Yes" }).click();
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Lisa");
-    await page.getByPlaceholder("Surname/Family name").fill("Jaz");
+    await page.getByPlaceholder("First name").fill("Charlotte");
+    await page.getByPlaceholder("Surname/Family name").fill("Johnson");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -131,8 +131,8 @@ await page.getByRole("button", { name: "Yes" }).click();
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("Laura");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.getByPlaceholder("E.g. 082 345 6789").fill("0719374857");
 
     await page.getByText("Next").click();
@@ -144,8 +144,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Robert");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.locator('input[name="phoneNumber"]').fill("0711234567");
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -166,8 +166,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Mandy");
-    await page.getByPlaceholder("Surname/Family name").fill("Juqu");
+    await page.getByPlaceholder("First name").fill("Amelia");
+    await page.getByPlaceholder("Surname/Family name").fill("Garcia");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -203,8 +203,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("Laura");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.getByPlaceholder("E.g. 082 345 6789").fill("0719374857");
 
     await page.getByText("Next").click();
@@ -216,8 +216,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Robert");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.locator('input[name="phoneNumber"]').fill("0711234567");
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -237,8 +237,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Ian");
-    await page.getByPlaceholder("Surname/Family name").fill("Ecco");
+    await page.getByPlaceholder("First name").fill("Henry");
+    await page.getByPlaceholder("Surname/Family name").fill("Martinez");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -274,8 +274,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("Laura");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.getByPlaceholder("E.g. 082 345 6789").fill("0719374857");
 
     await page.getByText("Next").click();
@@ -287,8 +287,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Robert");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.locator('input[name="phoneNumber"]').fill("0711234567");
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -310,8 +310,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Bob");
-    await page.getByPlaceholder("Surname/Family name").fill("Juqu");
+    await page.getByPlaceholder("First name").fill("Alexander");
+    await page.getByPlaceholder("Surname/Family name").fill("Rodriguez");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -347,8 +347,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("David");
+    await page.getByPlaceholder("Surname/family name").fill("Brown");
     await page.getByPlaceholder("E.g. 082 345 6789").fill("0719374857");
 
     await page.getByText("Next").click();
@@ -360,8 +360,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Emma");
+    await page.getByPlaceholder("Surname/family name").fill("Brown");
     await page.locator('input[name="phoneNumber"]').fill("0711234567");
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -380,8 +380,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Kelvin");
-    await page.getByPlaceholder("Surname/Family name").fill("Juqu");
+    await page.getByPlaceholder("First name").fill("Mia");
+    await page.getByPlaceholder("Surname/Family name").fill("Anderson");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -417,8 +417,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("Laura");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.getByPlaceholder("E.g. 082 345 6789").fill("0719374857");
 
     await page.getByText("Next").click();
@@ -430,8 +430,8 @@ await page.locator('textarea[name="streetAddress"]').fill("Test address");
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Robert");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.locator('input[name="phoneNumber"]').fill("0711234567");
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -549,4 +549,3 @@ await page.getByRole("button", { name: "Save" }).click();
     await browser.close();
   }
 })();
-

@@ -36,11 +36,11 @@ const { chromium } = require("playwright");
     );
 
     // ────────────────────────────────────────────────
-    // Open BulkSMS in new page & login
+    // Open BulkSMSOA3 in new page & login
     // ────────────────────────────────────────────────
     // const smsPage = await context.newPage();
-    // console.log("Opening BulkSMS login page...");
-    // await smsPage.goto("https://www.bulksms.com/account/ui/index.html#/login", {
+    // console.log("Opening BulkSMSOA3 login page...");
+    // await smsPage.goto("https://www.BulkSMSOA3.com/account/ui/index.html#/login", {
     //   waitUntil: "domcontentloaded",
     //   timeout: 20000,
     // });
@@ -50,10 +50,10 @@ const { chromium } = require("playwright");
     // await smsPage.locator('#CybotCookiebotDialogBodyButtonDecline, button:has-text("Deny")').click({ timeout: 8000, force: true })
     //   .catch(() => console.log("No Cookiebot dialog"));
 
-    // console.log("Entering BulkSMS username...");
+    // console.log("Entering BulkSMSOA3 username...");
     // await smsPage.fill('input[name="username"]', "ecdconnect");
 
-    // console.log("Entering BulkSMS password...");
+    // console.log("Entering BulkSMSOA3 password...");
     // await smsPage.fill('input[name="password"]', "ECDconnect1!");
 
     // console.log("Clicking Log in...");
@@ -62,7 +62,7 @@ const { chromium } = require("playwright");
     // // Wait for post-login (lenient)
     // await smsPage.waitForURL(/#?\/(inbox|sent|dashboard|home)/i, { timeout: 30000 }).catch(async () => {
     //   console.log("No redirect detected – forcing inbox...");
-    //   await smsPage.goto("https://www.bulksms.com/account/ui/index.html#/inbox", { waitUntil: "domcontentloaded" });
+    //   await smsPage.goto("https://www.BulkSMSOA3.com/account/ui/index.html#/inbox", { waitUntil: "domcontentloaded" });
     // });
 
     // await smsPage.waitForTimeout(5000); // settle
@@ -95,7 +95,7 @@ const { chromium } = require("playwright");
     // // Go to Sent Messages (direct navigation is more reliable)
     // // ────────────────────────────────────────────────
     // console.log("Navigating to Sent Messages...");
-    // await smsPage.goto("https://www.bulksms.com/account/ui/index.html#/sent/messages", {
+    // await smsPage.goto("https://www.BulkSMSOA3.com/account/ui/index.html#/sent/messages", {
     //   waitUntil: "domcontentloaded",
     //   timeout: 20000,
     // });
