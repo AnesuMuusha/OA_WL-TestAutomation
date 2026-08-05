@@ -36,7 +36,7 @@ const fullName = `${CHW.firstName} ${CHW.surname}`
 // app's own Yes/No prompts with its suggested defaults, and clicking Next/Save as they
 // become enabled. `extraStepHandler`, if given, runs each iteration for flow-specific
 // fields (e.g. child date of birth) before the generic fallback fill.
-async function runRegistrationWizard(invitePage, { label, generatedId, CHW, namePrefix, surnamePrefix, extraStepHandler, maxSteps = 20 }) {
+async function runRegistrationWizard(invitePage, { label, generatedId, CHW, namePrefix, surnamePrefix, extraStepHandler, photoQuestionChoice = "No", maxSteps = 20 }) {
   const personFirstName = `${namePrefix}${generatedId}`
   const personSurname = `${surnamePrefix}${generatedId}`
 
@@ -86,12 +86,50 @@ async function runRegistrationWizard(invitePage, { label, generatedId, CHW, name
       await extraStepHandler({ invitePage, bodyText })
     }
 
-    // Road to Health Book / Maternal Case Record -> No (the "Yes" branch requires a
-    // real photo upload the app won't accept from a synthetic file, which permanently
-    // blocks Next/Save)
-    if (bodyText.includes("Road to Health Book") || bodyText.includes("Maternal Case Record")) {
-      await invitePage.getByText("No", { exact: true }).click({ force: true }).catch(() => {})
-      console.log("Clicked No for Road to Health Book / Maternal Case Record question (avoids mandatory photo upload)")
+    // Road to Health Book / Maternal Case Record question
+    if (
+      (bodyText.includes("Does") && bodyText.includes("Road to Health Book")) ||
+      (bodyText.includes("Does") && bodyText.includes("Maternal Case Record"))
+    ) {
+      await invitePage.getByText(photoQuestionChoice, { exact: true }).click({ force: true }).catch(() => {})
+      console.log(`Clicked ${photoQuestionChoice} for Road to Health Book / Maternal Case Record question`)
+    }
+
+    // "Yes" branch: upload a photo for the RTHB/Maternal Case Record page.
+    // The "Tap to add" box must be clicked first — it reveals a Gallery/Camera
+    // chooser that (re)mounts the actual <input type="file">; setting files on
+    // whatever input exists before that click targets a stale/unwired node.
+    if (photoQuestionChoice === "Yes" && bodyText.match(/take a photo/i) && bodyText.includes("Tap to add")) {
+      const tapToAddBox = invitePage.getByText("Tap to add", { exact: true }).first()
+      if ((await tapToAddBox.count()) > 0) {
+        await tapToAddBox.click({ force: true }).catch(() => {})
+        await invitePage.waitForTimeout(1000)
+
+        const galleryBtn = invitePage.getByText("Gallery", { exact: true })
+        if ((await galleryBtn.count()) > 0 && (await galleryBtn.isVisible().catch(() => false))) {
+          await galleryBtn.click({ force: true }).catch(() => {})
+          await invitePage.waitForTimeout(500)
+        }
+
+        const fileInputs = invitePage.locator('input[type="file"]')
+        const fileInputCount = await fileInputs.count()
+        if (fileInputCount > 0) {
+          const jpegBuffer = Buffer.from(
+            "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=",
+            "base64",
+          )
+          await fileInputs
+            .last()
+            .setInputFiles({ name: "rthb-page.jpg", mimeType: "image/jpeg", buffer: jpegBuffer })
+            .catch(() => {})
+          console.log(`Uploaded photo (via Tap to add -> Gallery) to file input, ${fileInputCount} file input(s) present`)
+          await invitePage.waitForTimeout(2000)
+          const stillPrompting = (await invitePage.locator("body").innerText().catch(() => "")).includes("Tap to add")
+          console.log(stillPrompting ? "Still showing 'Tap to add' after upload — app may not have accepted the file" : "Upload accepted — 'Tap to add' placeholder cleared")
+        } else {
+          console.log("No file input found after clicking Tap to add / Gallery")
+        }
+      }
     }
 
     // "Is the caregiver already on CHW Connect?" -> No (per the app's own hint)
@@ -230,6 +268,117 @@ async function runRegistrationWizard(invitePage, { label, generatedId, CHW, name
   await invitePage.screenshot({ path: `stalled_${label.replace(/\s+/g, "_").toLowerCase()}.png`, fullPage: true }).catch(() => {})
 
   return { success: false, firstName: personFirstName, surname: personSurname }
+}
+
+// Walks one activity sub-flow inside the visit "dashboard" screen (e.g. "Care for
+// mom", "Pillar 1: Nutrition"). Unlike runRegistrationWizard, there's no Save button
+// to end on — success is defined as returning to the dashboard (recognized by its
+// "Tap a button below to get started" / "Your summary for this visit" text). Yes/No
+// questions default to "No" (the safe/no-symptom answer for health screening
+// checklists), and any leftover empty inputs get a generic fallback fill.
+async function walkVisitActivity(invitePage, activityLabel, maxSteps = 15) {
+  const DASHBOARD_MARKERS = ["Tap a button below to get started", "Your summary for this visit"]
+  let lastBodyText = null
+  let stuckCount = 0
+
+  for (let step = 1; step <= maxSteps; step++) {
+    await invitePage.waitForTimeout(1200)
+    const bodyText = await invitePage.locator("body").innerText().catch(() => "")
+    console.log(`--- ${activityLabel} step ${step} ---`)
+    console.log(bodyText.slice(0, 400))
+
+    if (step > 1 && DASHBOARD_MARKERS.some((marker) => bodyText.includes(marker))) {
+      console.log(`${activityLabel}: back at the visit dashboard — activity complete`)
+      return true
+    }
+
+    stuckCount = bodyText === lastBodyText ? stuckCount + 1 : 0
+    lastBodyText = bodyText
+    if (stuckCount >= 3) {
+      console.log(`${activityLabel}: no progress for ${stuckCount} iterations — stopping`)
+      return false
+    }
+
+    // Consent-style checkbox: only auto-check when there's exactly one on the page
+    // (a single consent tickbox). Multiple checkboxes mean a danger-sign/symptom
+    // checklist, where leaving everything unticked is the correct "none" default —
+    // ticking the first one by mistake falsely reports a symptom and cascades into
+    // referral/urgent-support flows.
+    const allCheckboxes = invitePage.locator('input[type="checkbox"]')
+    const checkboxCount = await allCheckboxes.count()
+    if (checkboxCount === 1) {
+      const checkbox = allCheckboxes.first()
+      if (!(await checkbox.isChecked().catch(() => true))) {
+        await checkbox.check({ force: true }).catch(() => {})
+      }
+    } else if (checkboxCount > 1 && bodyText.includes("None of the above")) {
+      // Symptom/danger-sign checklists render "None of the above" as the last
+      // checkbox in the list — some of these screens require a selection before
+      // Next/Save enables, so this is the safe "no symptoms" default.
+      const noneCheckbox = allCheckboxes.last()
+      if (!(await noneCheckbox.isChecked().catch(() => true))) {
+        await noneCheckbox.check({ force: true }).catch(() => {})
+        console.log(`${activityLabel}: checked "None of the above"`)
+      }
+    }
+
+    // Generic fallback: fill any empty visible text/number inputs and textareas
+    const fillableInputs = invitePage.locator(
+      'input[type="text"]:visible, input[type="number"]:visible, input:not([type]):visible, textarea:visible',
+    )
+    const fillableCount = await fillableInputs.count()
+    for (let i = 0; i < fillableCount; i++) {
+      const inp = fillableInputs.nth(i)
+      const val = await inp.inputValue().catch(() => "")
+      if (val) continue
+      await inp.fill("Test").catch(() => {})
+    }
+
+    // Yes/No questions default to "No" (safe/no-symptom answer)
+    if (bodyText.match(/\byes\b/i) && bodyText.match(/\bno\b/i)) {
+      const noOption = invitePage.getByText("No", { exact: true }).first()
+      if ((await noOption.count()) > 0) await noOption.click({ force: true }).catch(() => {})
+    }
+
+    // Known mandatory single-choice questions (not Yes/No) that block Save/Next
+    // until an option is picked. Extend this list as new ones are discovered.
+    const KNOWN_SINGLE_CHOICE_QUESTIONS = [
+      { match: /eat or drink in the last 24 hours/i, answer: "Breast milk only" },
+    ]
+    for (const { match, answer } of KNOWN_SINGLE_CHOICE_QUESTIONS) {
+      if (bodyText.match(match)) {
+        const option = invitePage.getByText(answer, { exact: true }).first()
+        if ((await option.count()) > 0) {
+          await option.click({ force: true }).catch(() => {})
+          console.log(`${activityLabel}: answered "${answer}" for known single-choice question`)
+        }
+      }
+    }
+
+    // Advance via whichever forward-moving button is present and enabled.
+    // Prefer "Save & Exit" over "Save & book your next visit" so we finish this
+    // visit rather than chaining straight into scheduling another one.
+    const saveExitBtn = invitePage.getByRole("button", { name: "Save & Exit", exact: true })
+    const forwardBtn =
+      (await saveExitBtn.count()) > 0 && (await saveExitBtn.isVisible().catch(() => false))
+        ? saveExitBtn
+        : invitePage.getByRole("button", { name: /^(start|next|done|continue|save|finish)$/i }).first()
+    if ((await forwardBtn.count()) > 0 && (await forwardBtn.isVisible().catch(() => false))) {
+      const disabled = await forwardBtn.isDisabled().catch(() => true)
+      if (!disabled) {
+        const btnText = await forwardBtn.textContent().catch(() => "?")
+        await forwardBtn.click({ force: true }).catch(() => {})
+        console.log(`${activityLabel}: clicked "${btnText}" (step ${step})`)
+      } else {
+        console.log(`${activityLabel}: forward button present but disabled on step ${step}.`)
+      }
+    } else {
+      console.log(`${activityLabel}: no forward button found on step ${step}.`)
+    }
+  }
+
+  console.log(`${activityLabel}: exceeded ${maxSteps} steps without returning to the dashboard.`)
+  return false
 }
 
 ;(async () => {
@@ -547,21 +696,40 @@ await invitePage.waitForTimeout(5000);
     await page.screenshot({ path: "post_click_user.png", fullPage: true })
     console.log("Screenshot saved as post_click_user.png")
 
-    // Step 10: Open a child folder and register a new child
-    await invitePage.getByText("Client folders", { exact: true }).click()
-    await invitePage.waitForTimeout(2000)
-    console.log("Opened Client folders")
+    // Step 10: Open a new folder from the Client folders home screen. Navigating
+    // to the home URL first (rather than hunting for a back button) is reliable
+    // regardless of what screen the previous folder's Save left us on.
+    async function openNewFolder(folderType) {
+      await invitePage.goto("https://growgreat-qa-fe.azurewebsites.net/", { waitUntil: "domcontentloaded" })
+      await invitePage.waitForTimeout(2000)
 
-    await invitePage.getByText("Open a new folder", { exact: true }).click()
-    await invitePage.waitForTimeout(2000)
-    console.log("Clicked Open a new folder")
+      await invitePage.getByText("Client folders", { exact: true }).click()
+      await invitePage.waitForTimeout(2000)
+      console.log("Opened Client folders")
 
-    await invitePage.getByText("Child", { exact: true }).click()
-    await invitePage.waitForTimeout(2000)
-    console.log("Clicked Child")
+      await invitePage.getByText("Open a new folder", { exact: true }).click()
+      await invitePage.waitForTimeout(2000)
+      console.log("Clicked Open a new folder")
 
-    await invitePage.getByRole("button", { name: "Start" }).click()
-    console.log("Started child registration form")
+      await invitePage.getByText(folderType, { exact: true }).click()
+      await invitePage.waitForTimeout(2000)
+      console.log(`Clicked ${folderType}`)
+
+      const startBtn = invitePage.getByRole("button", { name: "Start" })
+      if ((await startBtn.count()) > 0) {
+        await startBtn.click()
+        console.log(`Started ${folderType} registration form`)
+      }
+    }
+
+    async function reportResult(result, description, screenshotName) {
+      if (result.success) {
+        await invitePage.screenshot({ path: screenshotName, fullPage: true }).catch(() => {})
+        console.log(`${description} ${result.firstName} ${result.surname} registered. Screenshot: ${screenshotName}`)
+      } else {
+        console.log(`${description} registration did not complete — see log above for the step it stalled on.`)
+      }
+    }
 
     // ===== Child registration (5-month-old child) =====
     const dob = new Date()
@@ -633,48 +801,26 @@ await invitePage.waitForTimeout(5000);
       }
     }
 
-    const childResult = await runRegistrationWizard(invitePage, {
-      label: "Child registration",
+    // This run opens three folders, in order:
+    //   1. Child folder — no RTHB details
+    //   2. Pregnant mom folder
+    //   3. Child folder — with RTHB details (photo upload + weight/length)
+
+    // ----- Folder 1: Child, no RTHB -----
+    await openNewFolder("Child")
+    const child1Result = await runRegistrationWizard(invitePage, {
+      label: "Child registration (no RTHB)",
       generatedId,
       CHW,
-      namePrefix: "Baby",
+      namePrefix: "BabyNoRTHB",
       surnamePrefix: "Auto",
       extraStepHandler: childExtraHandler,
+      photoQuestionChoice: "No",
     })
+    await reportResult(child1Result, "Child (no RTHB)", "child_no_rthb_registered.png")
 
-    if (childResult.success) {
-      await invitePage.screenshot({ path: "child_registered.png", fullPage: true }).catch(() => {})
-      console.log(
-        `Child ${childResult.firstName} ${childResult.surname} registered (DOB ${dobDay} ${dobMonthName} ${dobYear}, 5 months old). Screenshot: child_registered.png`,
-      )
-    } else {
-      console.log("Child registration did not complete — see log above for the step it stalled on.")
-    }
-
-    // ===== Pregnant mom registration =====
-    // Navigate back to the home screen directly rather than hunting for a back
-    // button — after saving, the app leaves us on the new child's folder page.
-    await invitePage.goto("https://growgreat-qa-fe.azurewebsites.net/", { waitUntil: "domcontentloaded" })
-    await invitePage.waitForTimeout(2000)
-
-    await invitePage.getByText("Client folders", { exact: true }).click()
-    await invitePage.waitForTimeout(2000)
-    console.log("Opened Client folders")
-
-    await invitePage.getByText("Open a new folder", { exact: true }).click()
-    await invitePage.waitForTimeout(2000)
-    console.log("Clicked Open a new folder")
-
-    await invitePage.getByText("Pregnant mom", { exact: true }).click()
-    await invitePage.waitForTimeout(2000)
-    console.log("Clicked Pregnant mom")
-
-    const momStartBtn = invitePage.getByRole("button", { name: "Start" })
-    if ((await momStartBtn.count()) > 0) {
-      await momStartBtn.click()
-      console.log("Started pregnant mom registration form")
-    }
-
+    // ----- Folder 2: Pregnant mom -----
+    await openNewFolder("Pregnant mom")
     const momResult = await runRegistrationWizard(invitePage, {
       label: "Pregnant mom registration",
       generatedId,
@@ -682,14 +828,140 @@ await invitePage.waitForTimeout(5000);
       namePrefix: "Mom",
       surnamePrefix: "Auto",
     })
+    await reportResult(momResult, "Pregnant mom", "pregnant_mom_registered.png")
 
-    if (momResult.success) {
-      await invitePage.screenshot({ path: "pregnant_mom_registered.png", fullPage: true }).catch(() => {})
-      console.log(
-        `Pregnant mom ${momResult.firstName} ${momResult.surname} registered. Screenshot: pregnant_mom_registered.png`,
+    // ----- Folder 3: Child, with RTHB details -----
+    await openNewFolder("Child")
+    const child2Result = await runRegistrationWizard(invitePage, {
+      label: "Child registration (with RTHB)",
+      generatedId,
+      CHW,
+      namePrefix: "BabyRTHB",
+      surnamePrefix: "Auto",
+      extraStepHandler: childExtraHandler,
+      photoQuestionChoice: "Yes",
+    })
+    await reportResult(child2Result, "Child (with RTHB)", "child_with_rthb_registered.png")
+
+    // ===== EXPLORATION: record a visit for folder 3 (Child with RTHB) =====
+    if (child2Result.success) {
+      // The tour is a two-step tooltip sequence: "No, skip" leads to a second
+      // "Ok, you can always get help..." tooltip with its own Close button. Both
+      // must be dismissed or the overlay swallows the next click.
+      const skipTourBtn = invitePage.getByText("No, skip", { exact: true })
+      if ((await skipTourBtn.count()) > 0 && (await skipTourBtn.isVisible().catch(() => false))) {
+        await skipTourBtn.click().catch(() => {})
+        console.log("Dismissed client folders tour popup (step 1)")
+        await invitePage.waitForTimeout(1000)
+      }
+      const closeTourBtn = invitePage.getByRole("button", { name: "Close" })
+      if ((await closeTourBtn.count()) > 0 && (await closeTourBtn.isVisible().catch(() => false))) {
+        await closeTourBtn.click().catch(() => {})
+        console.log("Dismissed client folders tour popup (step 2)")
+        await invitePage.waitForTimeout(1000)
+      }
+
+      const folderRow = invitePage.getByText(child2Result.firstName, { exact: false }).first()
+      await folderRow.click({ force: true }).catch(() => {})
+      await invitePage.waitForTimeout(2000)
+      console.log("--- Opened child (RTHB) folder page ---")
+      console.log(await invitePage.locator("body").innerText().catch(() => ""))
+      await invitePage.screenshot({ path: "child_rthb_folder.png", fullPage: true }).catch(() => {})
+
+      const folderButtons = await invitePage.locator("button").evaluateAll((els) =>
+        els.map((el) => el.textContent?.trim().slice(0, 40)).filter(Boolean),
       )
-    } else {
-      console.log("Pregnant mom registration did not complete — see log above for the step it stalled on.")
+      console.log("Folder page buttons:", JSON.stringify(folderButtons))
+
+      const visitButton = invitePage.locator("button", { hasText: /visit/i }).first()
+      if ((await visitButton.count()) > 0) {
+        const visitButtonText = await visitButton.textContent()
+        console.log("Found visit button:", visitButtonText)
+        await visitButton.click({ force: true }).catch(() => {})
+        await invitePage.waitForTimeout(2000)
+        console.log("--- After clicking visit button (Visits tab) ---")
+        console.log(await invitePage.locator("body").innerText().catch(() => ""))
+        await invitePage.screenshot({ path: "child_rthb_visit_start.png", fullPage: true }).catch(() => {})
+
+        // The Visits tab has its own two-step tour popup, same pattern as before
+        const visitSkipTourBtn = invitePage.getByText("No, skip", { exact: true })
+        if ((await visitSkipTourBtn.count()) > 0 && (await visitSkipTourBtn.isVisible().catch(() => false))) {
+          await visitSkipTourBtn.click().catch(() => {})
+          console.log("Dismissed visits tab tour popup (step 1)")
+          await invitePage.waitForTimeout(1000)
+        }
+        const visitCloseTourBtn = invitePage.getByRole("button", { name: "Close" })
+        if ((await visitCloseTourBtn.count()) > 0 && (await visitCloseTourBtn.isVisible().catch(() => false))) {
+          await visitCloseTourBtn.click().catch(() => {})
+          console.log("Dismissed visits tab tour popup (step 2)")
+          await invitePage.waitForTimeout(1000)
+        }
+
+        // Start the currently-due visit (e.g. "Day 3 visit")
+        const startVisitBtn = invitePage.getByRole("button", { name: /start visit/i }).first()
+        if ((await startVisitBtn.count()) > 0) {
+          await startVisitBtn.click().catch(() => {})
+          console.log("Clicked Start visit")
+          await invitePage.waitForTimeout(2000)
+          console.log("--- After clicking Start visit ---")
+          console.log(await invitePage.locator("body").innerText().catch(() => ""))
+          await invitePage.screenshot({ path: "child_rthb_visit_form.png", fullPage: true }).catch(() => {})
+        } else {
+          console.log("No 'Start visit' button found on the Visits tab.")
+        }
+
+        // The visit is a dashboard of activity categories rather than a linear
+        // form — walk each one (returning to the dashboard between them) then
+        // look for however the app lets us finish/submit the whole visit.
+        // "Follow up" only appears once the first four are done, which is fine
+        // since it's processed last in this sequence.
+        const activityLabels = [
+          "Care for mom",
+          "Care for baby",
+          "Pillar 1: Nutrition",
+          "Pillar 5: Extra care",
+          "Follow up",
+        ]
+        const activityOutcomes = {}
+        for (const activityLabel of activityLabels) {
+          const activityButton = invitePage.getByText(activityLabel, { exact: true }).first()
+          if ((await activityButton.count()) === 0) {
+            console.log(`Activity button "${activityLabel}" not found on dashboard — skipping`)
+            activityOutcomes[activityLabel] = false
+            continue
+          }
+          await activityButton.click({ force: true }).catch(() => {})
+          console.log(`\n=== Starting activity: ${activityLabel} ===`)
+          const completed = await walkVisitActivity(invitePage, activityLabel)
+          activityOutcomes[activityLabel] = completed
+          await invitePage.waitForTimeout(1000)
+        }
+        console.log("Activity outcomes:", JSON.stringify(activityOutcomes))
+
+        await invitePage.screenshot({ path: "visit_activities_done.png", fullPage: true }).catch(() => {})
+        console.log("--- Visit dashboard after all activities ---")
+        console.log(await invitePage.locator("body").innerText().catch(() => ""))
+
+        // Once every activity is done, the app auto-completes the visit and shows
+        // a "Well done" summary — there's no separate finish/submit button to click,
+        // just "Back to client profile" to close out.
+        const dashboardText = await invitePage.locator("body").innerText().catch(() => "")
+        if (dashboardText.match(/well done|completing all activities/i)) {
+          console.log("Visit fully recorded — app shows the 'Well done' completion summary.")
+          const backToProfileBtn = invitePage.getByRole("button", { name: /back to client profile/i })
+          if ((await backToProfileBtn.count()) > 0) {
+            await backToProfileBtn.click({ force: true }).catch(() => {})
+            console.log("Clicked 'Back to client profile'")
+            await invitePage.waitForTimeout(1500)
+          }
+          await invitePage.screenshot({ path: "child_rthb_visit_recorded.png", fullPage: true }).catch(() => {})
+          console.log("Screenshot: child_rthb_visit_recorded.png")
+        } else {
+          console.log("Visit did not reach the 'Well done' completion state — see log/screenshot above for what's there.")
+        }
+      } else {
+        console.log("No visit-related button found on folder page — see log/screenshot above for what's there.")
+      }
     }
   } catch (error) {
     console.error("An error occurred:", error)
