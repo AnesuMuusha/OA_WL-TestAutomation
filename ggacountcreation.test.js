@@ -801,10 +801,11 @@ await invitePage.waitForTimeout(5000);
       }
     }
 
-    // This run opens three folders, in order:
+    // This run opens four folders, in order:
     //   1. Child folder — no RTHB details
-    //   2. Pregnant mom folder
-    //   3. Child folder — with RTHB details (photo upload + weight/length)
+    //   2. Pregnant mom folder — no MHB (Maternal Case Record) details
+    //   3. Pregnant mom folder — with MHB details (photo upload)
+    //   4. Child folder — with RTHB details (photo upload + weight/length)
 
     // ----- Folder 1: Child, no RTHB -----
     await openNewFolder("Child")
@@ -819,18 +820,31 @@ await invitePage.waitForTimeout(5000);
     })
     await reportResult(child1Result, "Child (no RTHB)", "child_no_rthb_registered.png")
 
-    // ----- Folder 2: Pregnant mom -----
+    // ----- Folder 2: Pregnant mom, no MHB -----
     await openNewFolder("Pregnant mom")
     const momResult = await runRegistrationWizard(invitePage, {
-      label: "Pregnant mom registration",
+      label: "Pregnant mom registration (no MHB)",
       generatedId,
       CHW,
-      namePrefix: "Mom",
+      namePrefix: "MomNoMHB",
       surnamePrefix: "Auto",
+      photoQuestionChoice: "No",
     })
-    await reportResult(momResult, "Pregnant mom", "pregnant_mom_registered.png")
+    await reportResult(momResult, "Pregnant mom (no MHB)", "pregnant_mom_no_mhb_registered.png")
 
-    // ----- Folder 3: Child, with RTHB details -----
+    // ----- Folder 3: Pregnant mom, with MHB details -----
+    await openNewFolder("Pregnant mom")
+    const momMhbResult = await runRegistrationWizard(invitePage, {
+      label: "Pregnant mom registration (with MHB)",
+      generatedId,
+      CHW,
+      namePrefix: "MomMHB",
+      surnamePrefix: "Auto",
+      photoQuestionChoice: "Yes",
+    })
+    await reportResult(momMhbResult, "Pregnant mom (with MHB)", "pregnant_mom_with_mhb_registered.png")
+
+    // ----- Folder 4: Child, with RTHB details -----
     await openNewFolder("Child")
     const child2Result = await runRegistrationWizard(invitePage, {
       label: "Child registration (with RTHB)",
@@ -843,7 +857,7 @@ await invitePage.waitForTimeout(5000);
     })
     await reportResult(child2Result, "Child (with RTHB)", "child_with_rthb_registered.png")
 
-    // ===== EXPLORATION: record a visit for folder 3 (Child with RTHB) =====
+    // ===== Record a visit for folder 4 (Child with RTHB) =====
     if (child2Result.success) {
       // The tour is a two-step tooltip sequence: "No, skip" leads to a second
       // "Ok, you can always get help..." tooltip with its own Close button. Both
