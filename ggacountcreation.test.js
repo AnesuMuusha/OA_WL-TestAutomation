@@ -31,6 +31,8 @@ const CHW = {
 // The name column renders as "<firstName> <surname>"
 const fullName = `${CHW.firstName} ${CHW.surname}`
 
+const RUN_EXISTING_FOLDERS = true
+
 // Walks a multi-step "Open a new folder" registration wizard (Child, Pregnant mom, ...)
 // filling in whatever fields it finds using name/placeholder heuristics, answering the
 // app's own Yes/No prompts with its suggested defaults, and clicking Next/Save as they
@@ -149,6 +151,38 @@ async function runRegistrationWizard(invitePage, { label, generatedId, CHW, name
       await invitePage.getByText("Select relationship").click().catch(() => {})
       await invitePage.waitForTimeout(500)
       await invitePage.getByText("Mother", { exact: true }).click().catch(() => {})
+    }
+
+    // Multi-child variant of the same step: "Please choose the client:" — either
+    // a relabeled relationship picker, or a picker for which of the registered
+    // children this caregiver applies to (in which case, select all of them,
+    // since it's the same caregiver for every child in this folder).
+    if (bodyText.includes("Please choose the client")) {
+      await invitePage.getByText("Please choose the client", { exact: false }).first().click({ force: true }).catch(() => {})
+      await invitePage.waitForTimeout(500)
+
+      const motherOption = invitePage.getByText("Mother", { exact: true })
+      if ((await motherOption.count()) > 0 && (await motherOption.isVisible().catch(() => false))) {
+        await motherOption.click({ force: true }).catch(() => {})
+        console.log("Picked Mother for 'Please choose the client' relationship")
+      } else {
+        // Assume a checklist of children — select every unchecked one
+        const clientCheckboxes = invitePage.locator('input[type="checkbox"]:visible')
+        const clientCheckboxCount = await clientCheckboxes.count()
+        for (let i = 0; i < clientCheckboxCount; i++) {
+          const cb = clientCheckboxes.nth(i)
+          if (!(await cb.isChecked().catch(() => true))) {
+            await cb.check({ force: true }).catch(() => {})
+          }
+        }
+        if (clientCheckboxCount > 0) {
+          console.log(`Checked ${clientCheckboxCount} client(s) for 'Please choose the client'`)
+        }
+        const confirmBtn = invitePage.getByRole("button", { name: /^(done|confirm|select|save)$/i }).first()
+        if ((await confirmBtn.count()) > 0 && (await confirmBtn.isVisible().catch(() => false))) {
+          await confirmBtn.click({ force: true }).catch(() => {})
+        }
+      }
     }
 
     // Generic phone field
@@ -956,13 +990,10 @@ await invitePage.waitForTimeout(5000);
     const dobYear = String(dob.getFullYear())
     console.log(`Target child DOB (5 months old): ${dobDay} ${dobMonthName} ${dobYear}`)
 
-    const childExtraHandler = async ({ invitePage, bodyText }) => {
-      // Multi-child question (step 1)
-      if (bodyText.includes("more than one child")) {
-        await invitePage.getByText("No", { exact: true }).click({ force: true }).catch(() => {})
-        await invitePage.waitForTimeout(500)
-      }
-
+    // Per-child Details step (name is handled generically elsewhere) — shared by
+    // both the single-child and multi-child flows, since the multi-child wizard
+    // repeats this same step once per child.
+    const childDetailsHandler = async ({ invitePage, bodyText }) => {
       // Date of birth: try <select> elements first, then custom dropdown buttons
       if (bodyText.match(/date of birth|birth date/i)) {
         const selects = invitePage.locator("select")
@@ -1018,12 +1049,24 @@ await invitePage.waitForTimeout(5000);
       }
     }
 
-    // This run opens four folders, in order:
+    // Single-child flow: answer "No" to "more than one child", then the shared
+    // per-child details.
+    const childExtraHandler = async ({ invitePage, bodyText }) => {
+      if (bodyText.includes("more than one child")) {
+        await invitePage.getByText("No", { exact: true }).click({ force: true }).catch(() => {})
+        await invitePage.waitForTimeout(500)
+      }
+      await childDetailsHandler({ invitePage, bodyText })
+    }
+
+    // This run opens five folders, in order:
     //   1. Child folder — no RTHB details
     //   2. Pregnant mom folder — no MHB (Maternal Case Record) details
     //   3. Pregnant mom folder — with MHB details (photo upload)
     //   4. Child folder — with RTHB details (photo upload + weight/length)
+    //   5. Child folder — 3 children registered together, each with RTHB details
 
+    if (RUN_EXISTING_FOLDERS) {
     // ----- Folder 1: Child, no RTHB -----
     await openNewFolder("Child")
     const child1Result = await runRegistrationWizard(invitePage, {
@@ -1091,6 +1134,47 @@ await invitePage.waitForTimeout(5000);
         screenshotPrefix: "child_rthb_visit",
       })
     }
+    } // end RUN_EXISTING_FOLDERS
+
+    // ----- Folder 5 (EXPLORATION): 3 children at once, with RTHB details -----
+    await openNewFolder("Child")
+
+    const multiChildExtraHandler = async ({ invitePage, bodyText }) => {
+      // Multi-child question (step 1) -> Yes, to register 3 children together
+      if (bodyText.includes("more than one child")) {
+        await invitePage.getByText("Yes", { exact: true }).click({ force: true }).catch(() => {})
+        console.log("Multi-child folder: answered Yes to 'more than one child'")
+        await invitePage.waitForTimeout(500)
+      }
+
+      // "How many children?" — must be set explicitly to 3, or the generic
+      // fallback fill defaults number inputs to a placeholder value (1). Name
+      // attribute matched case-insensitively since the log showed it lowercased.
+      const numberOfChildrenInput = invitePage.locator('input[name="numberofchildren" i]')
+      if ((await numberOfChildrenInput.count()) > 0 && (await numberOfChildrenInput.isVisible().catch(() => false))) {
+        const val = await numberOfChildrenInput.inputValue().catch(() => "")
+        if (val !== "3") {
+          await numberOfChildrenInput.fill("3").catch(() => {})
+          console.log("Multi-child folder: set number of children to 3")
+        }
+      }
+
+      // Reuse the same per-child DOB/gender/weight/length handling used for a
+      // single child — the multi-child flow repeats this same "Child Details"
+      // step once per child.
+      await childDetailsHandler({ invitePage, bodyText })
+    }
+
+    const multiChildResult = await runRegistrationWizard(invitePage, {
+      label: "Multi-child registration (3 children, RTHB)",
+      generatedId,
+      CHW,
+      namePrefix: "TripletA",
+      surnamePrefix: "Auto",
+      extraStepHandler: multiChildExtraHandler,
+      photoQuestionChoice: "Yes",
+    })
+    await reportResult(multiChildResult, "Multi-child (3, RTHB)", "multi_child_registered.png")
   } catch (error) {
     console.error("An error occurred:", error)
     await page.screenshot({ path: "error_screenshot.png", fullPage: true })
