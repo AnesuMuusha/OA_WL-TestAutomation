@@ -31,6 +31,8 @@ const CHW = {
 // The name column renders as "<firstName> <surname>"
 const fullName = `${CHW.firstName} ${CHW.surname}`
 
+const RUN_EXISTING_FOLDERS = true
+
 // Walks a multi-step "Open a new folder" registration wizard (Child, Pregnant mom, ...)
 // filling in whatever fields it finds using name/placeholder heuristics, answering the
 // app's own Yes/No prompts with its suggested defaults, and clicking Next/Save as they
@@ -149,6 +151,38 @@ async function runRegistrationWizard(invitePage, { label, generatedId, CHW, name
       await invitePage.getByText("Select relationship").click().catch(() => {})
       await invitePage.waitForTimeout(500)
       await invitePage.getByText("Mother", { exact: true }).click().catch(() => {})
+    }
+
+    // Multi-child variant of the same step: "Please choose the client:" — either
+    // a relabeled relationship picker, or a picker for which of the registered
+    // children this caregiver applies to (in which case, select all of them,
+    // since it's the same caregiver for every child in this folder).
+    if (bodyText.includes("Please choose the client")) {
+      await invitePage.getByText("Please choose the client", { exact: false }).first().click({ force: true }).catch(() => {})
+      await invitePage.waitForTimeout(500)
+
+      const motherOption = invitePage.getByText("Mother", { exact: true })
+      if ((await motherOption.count()) > 0 && (await motherOption.isVisible().catch(() => false))) {
+        await motherOption.click({ force: true }).catch(() => {})
+        console.log("Picked Mother for 'Please choose the client' relationship")
+      } else {
+        // Assume a checklist of children — select every unchecked one
+        const clientCheckboxes = invitePage.locator('input[type="checkbox"]:visible')
+        const clientCheckboxCount = await clientCheckboxes.count()
+        for (let i = 0; i < clientCheckboxCount; i++) {
+          const cb = clientCheckboxes.nth(i)
+          if (!(await cb.isChecked().catch(() => true))) {
+            await cb.check({ force: true }).catch(() => {})
+          }
+        }
+        if (clientCheckboxCount > 0) {
+          console.log(`Checked ${clientCheckboxCount} client(s) for 'Please choose the client'`)
+        }
+        const confirmBtn = invitePage.getByRole("button", { name: /^(done|confirm|select|save)$/i }).first()
+        if ((await confirmBtn.count()) > 0 && (await confirmBtn.isVisible().catch(() => false))) {
+          await confirmBtn.click({ force: true }).catch(() => {})
+        }
+      }
     }
 
     // Generic phone field
@@ -322,7 +356,25 @@ async function walkVisitActivity(invitePage, activityLabel, maxSteps = 15) {
       }
     }
 
-    // Generic fallback: fill any empty visible text/number inputs and textareas
+    // Known numeric fields with a specific expected value/range — filled before
+    // the generic fallback so they don't get a generic placeholder number instead.
+    const KNOWN_NUMERIC_FIELDS = [{ match: /mid-upper arm circumference/i, value: "30" }]
+    for (const { match, value } of KNOWN_NUMERIC_FIELDS) {
+      if (bodyText.match(match)) {
+        const numericInput = invitePage
+          .locator('input[type="text"]:visible, input[type="number"]:visible, input:not([type]):visible')
+          .first()
+        if ((await numericInput.count()) > 0) {
+          const currentVal = await numericInput.inputValue().catch(() => "")
+          if (!currentVal) {
+            await numericInput.fill(value).catch(() => {})
+            console.log(`${activityLabel}: filled known numeric field with "${value}"`)
+          }
+        }
+      }
+    }
+
+    // Generic fallback: fill any empty visible text/number inputs and textareas.
     const fillableInputs = invitePage.locator(
       'input[type="text"]:visible, input[type="number"]:visible, input:not([type]):visible, textarea:visible',
     )
@@ -331,19 +383,27 @@ async function walkVisitActivity(invitePage, activityLabel, maxSteps = 15) {
       const inp = fillableInputs.nth(i)
       const val = await inp.inputValue().catch(() => "")
       if (val) continue
-      await inp.fill("Test").catch(() => {})
+      const type = await inp.getAttribute("type").catch(() => null)
+      await inp.fill(type === "number" ? "25" : "Test").catch(() => {})
     }
 
-    // Yes/No questions default to "No" (safe/no-symptom answer)
+    // Yes/No questions default to "No" (safe/no-symptom answer). Some screens
+    // (e.g. "Maternal distress screening") stack multiple Yes/No question pairs
+    // on one page — click every "No" option present, not just the first, or the
+    // later questions stay unanswered and Next never enables.
     if (bodyText.match(/\byes\b/i) && bodyText.match(/\bno\b/i)) {
-      const noOption = invitePage.getByText("No", { exact: true }).first()
-      if ((await noOption.count()) > 0) await noOption.click({ force: true }).catch(() => {})
+      const noOptions = invitePage.getByText("No", { exact: true })
+      const noCount = await noOptions.count()
+      for (let i = 0; i < noCount; i++) {
+        await noOptions.nth(i).click({ force: true }).catch(() => {})
+      }
     }
 
     // Known mandatory single-choice questions (not Yes/No) that block Save/Next
     // until an option is picked. Extend this list as new ones are discovered.
     const KNOWN_SINGLE_CHOICE_QUESTIONS = [
       { match: /eat or drink in the last 24 hours/i, answer: "Breast milk only" },
+      { match: /how many drinks does it take to make you high/i, answer: "NA" },
     ]
     for (const { match, answer } of KNOWN_SINGLE_CHOICE_QUESTIONS) {
       if (bodyText.match(match)) {
@@ -379,6 +439,197 @@ async function walkVisitActivity(invitePage, activityLabel, maxSteps = 15) {
 
   console.log(`${activityLabel}: exceeded ${maxSteps} steps without returning to the dashboard.`)
   return false
+}
+
+// Dashboard chrome that's never an activity category — filtered out when scanning
+// for category buttons on the visit dashboard.
+const VISIT_DASHBOARD_CHROME = new Set([
+  "Client type",
+  "Age",
+  "Sort by",
+  "Open a folder",
+  "Close",
+  "See completed activities",
+  "Hide completed activities",
+  "Back to client profile",
+  "Yes, help me!",
+  "No, skip",
+  // Form-control labels from inside an activity sub-wizard — if one stalls and
+  // leaves e.g. a "Next" button on screen, it must never be mistaken for a new
+  // activity category on the next scrape.
+  "Next",
+  "Save",
+  "Start",
+  "Done",
+  "Continue",
+  "Finish",
+  "Save & Exit",
+  "Save & book your next visit",
+])
+
+// Opens a client folder by name, starts its currently-due visit, and walks
+// whatever activity categories the dashboard presents — discovering them as it
+// goes (e.g. "Follow up" only appears once earlier ones are done) rather than
+// assuming a fixed list, since different folder types (child vs. pregnant mom)
+// show different categories. Returns true once the app shows its "Well done"
+// completion summary.
+async function recordVisitForFolder(invitePage, { personFirstName, resultLabel, screenshotPrefix, maxRounds = 8 }) {
+  // Self-contained: always start from the home screen's Client folders list,
+  // regardless of what page a previous call in the same run left us on.
+  await invitePage.goto("https://growgreat-qa-fe.azurewebsites.net/", { waitUntil: "domcontentloaded" })
+  await invitePage.waitForTimeout(2000)
+  await invitePage.getByText("Client folders", { exact: true }).click().catch(() => {})
+  await invitePage.waitForTimeout(2000)
+
+  // "Client folders" opens the "What do you want to do?" menu — use "Find a
+  // client folder" to search for this specific person rather than assuming a
+  // Clients list of every folder is already on screen.
+  const findFolderBtn = invitePage.getByText("Find a client folder", { exact: true })
+  if ((await findFolderBtn.count()) > 0 && (await findFolderBtn.isVisible().catch(() => false))) {
+    await findFolderBtn.click({ force: true }).catch(() => {})
+    console.log(`${resultLabel}: clicked Find a client folder`)
+    await invitePage.waitForTimeout(2000)
+  } else {
+    console.log(`${resultLabel}: 'Find a client folder' not found — trying to proceed anyway`)
+  }
+
+  // The client folders tour is a two-step tooltip sequence: "No, skip" leads to a
+  // second "Ok, you can always get help..." tooltip with its own Close button.
+  // Both must be dismissed or the overlay swallows the next click.
+  const skipTourBtn = invitePage.getByText("No, skip", { exact: true })
+  if ((await skipTourBtn.count()) > 0 && (await skipTourBtn.isVisible().catch(() => false))) {
+    await skipTourBtn.click().catch(() => {})
+    console.log(`${resultLabel}: dismissed client folders tour popup (step 1)`)
+    await invitePage.waitForTimeout(1000)
+  }
+  const closeTourBtn = invitePage.getByRole("button", { name: "Close" })
+  if ((await closeTourBtn.count()) > 0 && (await closeTourBtn.isVisible().catch(() => false))) {
+    await closeTourBtn.click().catch(() => {})
+    console.log(`${resultLabel}: dismissed client folders tour popup (step 2)`)
+    await invitePage.waitForTimeout(1000)
+  }
+
+  // Search by name if a search input is present, then click the matching folder
+  const searchInput = invitePage.locator('input[type="text"], input[type="search"]').first()
+  if ((await searchInput.count()) > 0 && (await searchInput.isVisible().catch(() => false))) {
+    await searchInput.fill(personFirstName).catch(() => {})
+    console.log(`${resultLabel}: searched for "${personFirstName}"`)
+    await invitePage.waitForTimeout(1500)
+  }
+
+  const folderRow = invitePage.getByText(personFirstName, { exact: false }).first()
+  await folderRow.click({ force: true }).catch(() => {})
+  await invitePage.waitForTimeout(2000)
+  console.log(`${resultLabel}: opened folder page`)
+
+  const visitButton = invitePage.locator("button", { hasText: /visit/i }).first()
+  if ((await visitButton.count()) === 0) {
+    console.log(`${resultLabel}: no visit-related button found on folder page`)
+    await invitePage.screenshot({ path: `${screenshotPrefix}_no_visit_button.png`, fullPage: true }).catch(() => {})
+    return false
+  }
+  await visitButton.click({ force: true }).catch(() => {})
+  await invitePage.waitForTimeout(2000)
+  console.log(`${resultLabel}: opened Visits tab`)
+
+  // The Visits tab has its own two-step tour popup, same pattern as above
+  const visitSkipTourBtn = invitePage.getByText("No, skip", { exact: true })
+  if ((await visitSkipTourBtn.count()) > 0 && (await visitSkipTourBtn.isVisible().catch(() => false))) {
+    await visitSkipTourBtn.click().catch(() => {})
+    console.log(`${resultLabel}: dismissed visits tab tour popup (step 1)`)
+    await invitePage.waitForTimeout(1000)
+  }
+  const visitCloseTourBtn = invitePage.getByRole("button", { name: "Close" })
+  if ((await visitCloseTourBtn.count()) > 0 && (await visitCloseTourBtn.isVisible().catch(() => false))) {
+    await visitCloseTourBtn.click().catch(() => {})
+    console.log(`${resultLabel}: dismissed visits tab tour popup (step 2)`)
+    await invitePage.waitForTimeout(1000)
+  }
+
+  const startVisitBtn = invitePage.getByRole("button", { name: /start visit/i }).first()
+  if ((await startVisitBtn.count()) === 0) {
+    console.log(`${resultLabel}: no 'Start visit' button found on the Visits tab`)
+    await invitePage.screenshot({ path: `${screenshotPrefix}_no_start_visit.png`, fullPage: true }).catch(() => {})
+    return false
+  }
+  await startVisitBtn.click().catch(() => {})
+  console.log(`${resultLabel}: clicked Start visit`)
+  await invitePage.waitForTimeout(2000)
+
+  // Dynamically discover and walk activity categories, round by round, until the
+  // dashboard shows the "Well done" completion summary or nothing new appears.
+  const triedLabels = new Set()
+  for (let round = 1; round <= maxRounds; round++) {
+    const dashboardText = await invitePage.locator("body").innerText().catch(() => "")
+    if (dashboardText.match(/well done|completing all activities/i)) {
+      console.log(`${resultLabel}: dashboard shows completion summary`)
+      break
+    }
+
+    // Dashboard category tiles are clickable <div> rows (Tailwind "cursor-pointer"),
+    // not <button> elements — unlike the Next/Save/Start controls inside each
+    // activity's own sub-wizard, which are real buttons. Some tiles (e.g. "Follow
+    // up") bundle a subtitle line into the same container, so take just the first
+    // visible line as the label rather than the whole blob.
+    const candidateTexts = await invitePage.evaluate(() => {
+      const els = Array.from(document.querySelectorAll('button, [class*="cursor-pointer"]'))
+      return els
+        .map((el) => (el.innerText || "").split("\n")[0]?.trim())
+        .filter((text) => text && text.length <= 40)
+    })
+    const nextLabel = candidateTexts.find((text) => !VISIT_DASHBOARD_CHROME.has(text) && !triedLabels.has(text))
+
+    if (!nextLabel) {
+      console.log(`${resultLabel}: no new activity categories found on round ${round} — stopping`)
+      break
+    }
+
+    triedLabels.add(nextLabel)
+    const activityButton = invitePage.getByText(nextLabel, { exact: true }).first()
+    await activityButton.click({ force: true }).catch(() => {})
+    console.log(`\n=== ${resultLabel}: starting activity: ${nextLabel} ===`)
+    const activityCompleted = await walkVisitActivity(invitePage, `${resultLabel} / ${nextLabel}`)
+
+    // Some visit types (e.g. pregnant mom) don't return to a "Well done" activity
+    // dashboard after the last activity's Save & Exit — they redirect straight to
+    // the folder's profile/Visits tab instead, recognizable by its new "Past
+    // visits" section. Treat that as the visit having completed successfully.
+    const postActivityText = await invitePage.locator("body").innerText().catch(() => "")
+    if (postActivityText.includes("Past visits")) {
+      console.log(`${resultLabel}: landed on folder profile after "${nextLabel}" — visit complete`)
+      await invitePage.screenshot({ path: `${screenshotPrefix}_recorded.png`, fullPage: true }).catch(() => {})
+      console.log(`${resultLabel}: screenshot saved as ${screenshotPrefix}_recorded.png`)
+      return true
+    }
+
+    if (!activityCompleted) {
+      // Don't keep scraping — we're likely still stuck mid-activity, and the next
+      // scrape would pick up a stray in-page control (e.g. a "No" radio option)
+      // and mistake it for a new top-level category.
+      console.log(`${resultLabel}: activity "${nextLabel}" did not complete — stopping visit walk for inspection`)
+      break
+    }
+    await invitePage.waitForTimeout(1000)
+  }
+
+  const finalText = await invitePage.locator("body").innerText().catch(() => "")
+  await invitePage.screenshot({ path: `${screenshotPrefix}_dashboard.png`, fullPage: true }).catch(() => {})
+
+  if (!finalText.match(/well done|completing all activities/i)) {
+    console.log(`${resultLabel}: visit did not reach the 'Well done' completion state — see log/screenshot above.`)
+    return false
+  }
+
+  console.log(`${resultLabel}: visit fully recorded — app shows the 'Well done' completion summary.`)
+  const backToProfileBtn = invitePage.getByRole("button", { name: /back to client profile/i })
+  if ((await backToProfileBtn.count()) > 0) {
+    await backToProfileBtn.click({ force: true }).catch(() => {})
+    console.log(`${resultLabel}: clicked 'Back to client profile'`)
+    await invitePage.waitForTimeout(1500)
+  }
+  await invitePage.screenshot({ path: `${screenshotPrefix}_recorded.png`, fullPage: true }).catch(() => {})
+  console.log(`${resultLabel}: screenshot saved as ${screenshotPrefix}_recorded.png`)
+  return true
 }
 
 ;(async () => {
@@ -739,13 +990,10 @@ await invitePage.waitForTimeout(5000);
     const dobYear = String(dob.getFullYear())
     console.log(`Target child DOB (5 months old): ${dobDay} ${dobMonthName} ${dobYear}`)
 
-    const childExtraHandler = async ({ invitePage, bodyText }) => {
-      // Multi-child question (step 1)
-      if (bodyText.includes("more than one child")) {
-        await invitePage.getByText("No", { exact: true }).click({ force: true }).catch(() => {})
-        await invitePage.waitForTimeout(500)
-      }
-
+    // Per-child Details step (name is handled generically elsewhere) — shared by
+    // both the single-child and multi-child flows, since the multi-child wizard
+    // repeats this same step once per child.
+    const childDetailsHandler = async ({ invitePage, bodyText }) => {
       // Date of birth: try <select> elements first, then custom dropdown buttons
       if (bodyText.match(/date of birth|birth date/i)) {
         const selects = invitePage.locator("select")
@@ -801,12 +1049,24 @@ await invitePage.waitForTimeout(5000);
       }
     }
 
-    // This run opens four folders, in order:
+    // Single-child flow: answer "No" to "more than one child", then the shared
+    // per-child details.
+    const childExtraHandler = async ({ invitePage, bodyText }) => {
+      if (bodyText.includes("more than one child")) {
+        await invitePage.getByText("No", { exact: true }).click({ force: true }).catch(() => {})
+        await invitePage.waitForTimeout(500)
+      }
+      await childDetailsHandler({ invitePage, bodyText })
+    }
+
+    // This run opens five folders, in order:
     //   1. Child folder — no RTHB details
     //   2. Pregnant mom folder — no MHB (Maternal Case Record) details
     //   3. Pregnant mom folder — with MHB details (photo upload)
     //   4. Child folder — with RTHB details (photo upload + weight/length)
+    //   5. Child folder — 3 children registered together, each with RTHB details
 
+    if (RUN_EXISTING_FOLDERS) {
     // ----- Folder 1: Child, no RTHB -----
     await openNewFolder("Child")
     const child1Result = await runRegistrationWizard(invitePage, {
@@ -857,126 +1117,64 @@ await invitePage.waitForTimeout(5000);
     })
     await reportResult(child2Result, "Child (with RTHB)", "child_with_rthb_registered.png")
 
+    // ===== Record a visit for folder 3 (Pregnant mom with MHB) =====
+    if (momMhbResult.success) {
+      await recordVisitForFolder(invitePage, {
+        personFirstName: momMhbResult.firstName,
+        resultLabel: "Visit (Pregnant mom with MHB)",
+        screenshotPrefix: "pregnant_mom_mhb_visit",
+      })
+    }
+
     // ===== Record a visit for folder 4 (Child with RTHB) =====
     if (child2Result.success) {
-      // The tour is a two-step tooltip sequence: "No, skip" leads to a second
-      // "Ok, you can always get help..." tooltip with its own Close button. Both
-      // must be dismissed or the overlay swallows the next click.
-      const skipTourBtn = invitePage.getByText("No, skip", { exact: true })
-      if ((await skipTourBtn.count()) > 0 && (await skipTourBtn.isVisible().catch(() => false))) {
-        await skipTourBtn.click().catch(() => {})
-        console.log("Dismissed client folders tour popup (step 1)")
-        await invitePage.waitForTimeout(1000)
-      }
-      const closeTourBtn = invitePage.getByRole("button", { name: "Close" })
-      if ((await closeTourBtn.count()) > 0 && (await closeTourBtn.isVisible().catch(() => false))) {
-        await closeTourBtn.click().catch(() => {})
-        console.log("Dismissed client folders tour popup (step 2)")
-        await invitePage.waitForTimeout(1000)
-      }
-
-      const folderRow = invitePage.getByText(child2Result.firstName, { exact: false }).first()
-      await folderRow.click({ force: true }).catch(() => {})
-      await invitePage.waitForTimeout(2000)
-      console.log("--- Opened child (RTHB) folder page ---")
-      console.log(await invitePage.locator("body").innerText().catch(() => ""))
-      await invitePage.screenshot({ path: "child_rthb_folder.png", fullPage: true }).catch(() => {})
-
-      const folderButtons = await invitePage.locator("button").evaluateAll((els) =>
-        els.map((el) => el.textContent?.trim().slice(0, 40)).filter(Boolean),
-      )
-      console.log("Folder page buttons:", JSON.stringify(folderButtons))
-
-      const visitButton = invitePage.locator("button", { hasText: /visit/i }).first()
-      if ((await visitButton.count()) > 0) {
-        const visitButtonText = await visitButton.textContent()
-        console.log("Found visit button:", visitButtonText)
-        await visitButton.click({ force: true }).catch(() => {})
-        await invitePage.waitForTimeout(2000)
-        console.log("--- After clicking visit button (Visits tab) ---")
-        console.log(await invitePage.locator("body").innerText().catch(() => ""))
-        await invitePage.screenshot({ path: "child_rthb_visit_start.png", fullPage: true }).catch(() => {})
-
-        // The Visits tab has its own two-step tour popup, same pattern as before
-        const visitSkipTourBtn = invitePage.getByText("No, skip", { exact: true })
-        if ((await visitSkipTourBtn.count()) > 0 && (await visitSkipTourBtn.isVisible().catch(() => false))) {
-          await visitSkipTourBtn.click().catch(() => {})
-          console.log("Dismissed visits tab tour popup (step 1)")
-          await invitePage.waitForTimeout(1000)
-        }
-        const visitCloseTourBtn = invitePage.getByRole("button", { name: "Close" })
-        if ((await visitCloseTourBtn.count()) > 0 && (await visitCloseTourBtn.isVisible().catch(() => false))) {
-          await visitCloseTourBtn.click().catch(() => {})
-          console.log("Dismissed visits tab tour popup (step 2)")
-          await invitePage.waitForTimeout(1000)
-        }
-
-        // Start the currently-due visit (e.g. "Day 3 visit")
-        const startVisitBtn = invitePage.getByRole("button", { name: /start visit/i }).first()
-        if ((await startVisitBtn.count()) > 0) {
-          await startVisitBtn.click().catch(() => {})
-          console.log("Clicked Start visit")
-          await invitePage.waitForTimeout(2000)
-          console.log("--- After clicking Start visit ---")
-          console.log(await invitePage.locator("body").innerText().catch(() => ""))
-          await invitePage.screenshot({ path: "child_rthb_visit_form.png", fullPage: true }).catch(() => {})
-        } else {
-          console.log("No 'Start visit' button found on the Visits tab.")
-        }
-
-        // The visit is a dashboard of activity categories rather than a linear
-        // form — walk each one (returning to the dashboard between them) then
-        // look for however the app lets us finish/submit the whole visit.
-        // "Follow up" only appears once the first four are done, which is fine
-        // since it's processed last in this sequence.
-        const activityLabels = [
-          "Care for mom",
-          "Care for baby",
-          "Pillar 1: Nutrition",
-          "Pillar 5: Extra care",
-          "Follow up",
-        ]
-        const activityOutcomes = {}
-        for (const activityLabel of activityLabels) {
-          const activityButton = invitePage.getByText(activityLabel, { exact: true }).first()
-          if ((await activityButton.count()) === 0) {
-            console.log(`Activity button "${activityLabel}" not found on dashboard — skipping`)
-            activityOutcomes[activityLabel] = false
-            continue
-          }
-          await activityButton.click({ force: true }).catch(() => {})
-          console.log(`\n=== Starting activity: ${activityLabel} ===`)
-          const completed = await walkVisitActivity(invitePage, activityLabel)
-          activityOutcomes[activityLabel] = completed
-          await invitePage.waitForTimeout(1000)
-        }
-        console.log("Activity outcomes:", JSON.stringify(activityOutcomes))
-
-        await invitePage.screenshot({ path: "visit_activities_done.png", fullPage: true }).catch(() => {})
-        console.log("--- Visit dashboard after all activities ---")
-        console.log(await invitePage.locator("body").innerText().catch(() => ""))
-
-        // Once every activity is done, the app auto-completes the visit and shows
-        // a "Well done" summary — there's no separate finish/submit button to click,
-        // just "Back to client profile" to close out.
-        const dashboardText = await invitePage.locator("body").innerText().catch(() => "")
-        if (dashboardText.match(/well done|completing all activities/i)) {
-          console.log("Visit fully recorded — app shows the 'Well done' completion summary.")
-          const backToProfileBtn = invitePage.getByRole("button", { name: /back to client profile/i })
-          if ((await backToProfileBtn.count()) > 0) {
-            await backToProfileBtn.click({ force: true }).catch(() => {})
-            console.log("Clicked 'Back to client profile'")
-            await invitePage.waitForTimeout(1500)
-          }
-          await invitePage.screenshot({ path: "child_rthb_visit_recorded.png", fullPage: true }).catch(() => {})
-          console.log("Screenshot: child_rthb_visit_recorded.png")
-        } else {
-          console.log("Visit did not reach the 'Well done' completion state — see log/screenshot above for what's there.")
-        }
-      } else {
-        console.log("No visit-related button found on folder page — see log/screenshot above for what's there.")
-      }
+      await recordVisitForFolder(invitePage, {
+        personFirstName: child2Result.firstName,
+        resultLabel: "Visit (Child with RTHB)",
+        screenshotPrefix: "child_rthb_visit",
+      })
     }
+    } // end RUN_EXISTING_FOLDERS
+
+    // ----- Folder 5 (EXPLORATION): 3 children at once, with RTHB details -----
+    await openNewFolder("Child")
+
+    const multiChildExtraHandler = async ({ invitePage, bodyText }) => {
+      // Multi-child question (step 1) -> Yes, to register 3 children together
+      if (bodyText.includes("more than one child")) {
+        await invitePage.getByText("Yes", { exact: true }).click({ force: true }).catch(() => {})
+        console.log("Multi-child folder: answered Yes to 'more than one child'")
+        await invitePage.waitForTimeout(500)
+      }
+
+      // "How many children?" — must be set explicitly to 3, or the generic
+      // fallback fill defaults number inputs to a placeholder value (1). Name
+      // attribute matched case-insensitively since the log showed it lowercased.
+      const numberOfChildrenInput = invitePage.locator('input[name="numberofchildren" i]')
+      if ((await numberOfChildrenInput.count()) > 0 && (await numberOfChildrenInput.isVisible().catch(() => false))) {
+        const val = await numberOfChildrenInput.inputValue().catch(() => "")
+        if (val !== "3") {
+          await numberOfChildrenInput.fill("3").catch(() => {})
+          console.log("Multi-child folder: set number of children to 3")
+        }
+      }
+
+      // Reuse the same per-child DOB/gender/weight/length handling used for a
+      // single child — the multi-child flow repeats this same "Child Details"
+      // step once per child.
+      await childDetailsHandler({ invitePage, bodyText })
+    }
+
+    const multiChildResult = await runRegistrationWizard(invitePage, {
+      label: "Multi-child registration (3 children, RTHB)",
+      generatedId,
+      CHW,
+      namePrefix: "TripletA",
+      surnamePrefix: "Auto",
+      extraStepHandler: multiChildExtraHandler,
+      photoQuestionChoice: "Yes",
+    })
+    await reportResult(multiChildResult, "Multi-child (3, RTHB)", "multi_child_registered.png")
   } catch (error) {
     console.error("An error occurred:", error)
     await page.screenshot({ path: "error_screenshot.png", fullPage: true })
