@@ -24,8 +24,7 @@ const CHW = {
   surname: generatedId,
   phoneNumber: "0834071970",
   passportNumber: generatedId,
-  clinicLabel: "Clinic_0201",
-  clinicValue: "3052ae47-8a61-4d0d-a4d5-c1dcd5b00d9e",
+  clinicLabel: "Mamanyoha",
 }
 
 // The name column renders as "<firstName> <surname>"
@@ -640,7 +639,7 @@ async function recordVisitForFolder(invitePage, { personFirstName, resultLabel, 
   try {
     // Step 1: Navigate to landing page
     console.log("Navigating to landing page...")
-    await page.goto("https://growgreat-qa-portal.azurewebsites.net/", {
+    await page.goto("https://chwconnect-staging-portal.azurewebsites.net/", {
       timeout: 40000,
       waitUntil: "networkidle",
     })
@@ -730,12 +729,7 @@ async function recordVisitForFolder(invitePage, { personFirstName, resultLabel, 
     )
     console.log("Clinic options loaded")
 
-    try {
-      await page.selectOption(clinicSelect, CHW.clinicValue)
-    } catch (e) {
-      console.log("Value select failed, falling back to label...")
-      await page.selectOption(clinicSelect, { label: CHW.clinicLabel })
-    }
+    await page.selectOption(clinicSelect, { label: CHW.clinicLabel })
 
     const selectedText = await page.$eval(clinicSelect, (el) => el.options[el.selectedIndex].textContent.trim())
     if (selectedText !== CHW.clinicLabel) {
