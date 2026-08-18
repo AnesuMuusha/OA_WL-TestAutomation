@@ -947,6 +947,59 @@ await invitePage.waitForTimeout(5000);
     await page.screenshot({ path: "post_click_user.png", fullPage: true })
     console.log("Screenshot saved as post_click_user.png")
 
+    // ===== Join the community =====
+    // The home screen is a stack of rows: Client folders, Calendar, Training,
+    // Points, then the CHW's clinic. The clinic row is always last, and clicking
+    // it opens the "Connect with the <clinic> team" community join form. We pick
+    // it by position (.last()) rather than matching CHW.clinicLabel by text,
+    // since a different environment/run can assign a different clinic.
+    const homeRows = invitePage.locator(".flex-col.gap-1 > div")
+    await homeRows.last().waitFor({ state: "visible", timeout: 15000 })
+    await homeRows.last().click({ force: true })
+    console.log("Clicked the last home screen row (clinic) to join the community")
+    await invitePage.waitForTimeout(2000)
+
+    // Fill the "Connect with the team" intro form
+    const communityBioInput = invitePage.getByPlaceholder("E.g. I am a champion for children")
+    if ((await communityBioInput.count()) > 0 && (await communityBioInput.isVisible().catch(() => false))) {
+      await communityBioInput.fill(`Automated tester ${generatedId}`).catch(() => {})
+      console.log("Filled community bio")
+    }
+
+    await invitePage.getByText("Yes", { exact: true }).click({ force: true }).catch(() => {})
+    console.log("Opted to share phone & WhatsApp number with the team")
+    await invitePage.waitForTimeout(500)
+
+    await invitePage.getByRole("button", { name: "Save" }).click()
+    console.log("Saved community intro")
+    await invitePage.waitForTimeout(2000)
+
+    // The optional profile photo prompt that follows Save
+    const doThisLaterBtn = invitePage.getByText("Do this later", { exact: true })
+    if ((await doThisLaterBtn.count()) > 0 && (await doThisLaterBtn.isVisible().catch(() => false))) {
+      await doThisLaterBtn.click({ force: true }).catch(() => {})
+      console.log("Skipped the community profile photo prompt")
+      await invitePage.waitForTimeout(2000)
+    }
+
+    // Community section tour is the same two-step tooltip pattern used elsewhere
+    // in this suite ("No, skip" then a possible second "Close" tooltip).
+    const communityTourSkipBtn = invitePage.getByText("No, skip", { exact: true })
+    if ((await communityTourSkipBtn.count()) > 0 && (await communityTourSkipBtn.isVisible().catch(() => false))) {
+      await communityTourSkipBtn.click().catch(() => {})
+      console.log("Dismissed community tour popup (step 1)")
+      await invitePage.waitForTimeout(1000)
+    }
+    const communityTourCloseBtn = invitePage.getByRole("button", { name: "Close" })
+    if ((await communityTourCloseBtn.count()) > 0 && (await communityTourCloseBtn.isVisible().catch(() => false))) {
+      await communityTourCloseBtn.click().catch(() => {})
+      console.log("Dismissed community tour popup (step 2)")
+      await invitePage.waitForTimeout(1000)
+    }
+
+    await invitePage.screenshot({ path: "community_joined.png", fullPage: true }).catch(() => {})
+    console.log("Screenshot saved as community_joined.png")
+
     // Step 10: Open a new folder from the Client folders home screen. Navigating
     // to the home URL first (rather than hunting for a back button) is reliable
     // regardless of what screen the previous folder's Save left us on.
