@@ -36,7 +36,25 @@ const { chromium } = require("playwright");
     );
 
     await page.bringToFront();
-    await page.waitForTimeout(30000);
+
+    console.log("Waiting for OTP screen...");
+    await page.getByText("Enter your 6 digit code").waitFor({ timeout: 15000 }).catch(() => {});
+
+    const otpBannerText = await page
+      .getByText(/testing only.*code:/i)
+      .innerText()
+      .catch(() => "");
+    const otpMatch = otpBannerText.match(/(\d{6})/);
+
+    if (otpMatch) {
+      console.log(`Filling OTP code ${otpMatch[1]}...`);
+      await page.getByPlaceholder("------").fill(otpMatch[1]);
+      await page.getByRole("button", { name: "Confirm" }).click();
+      await page.waitForTimeout(2000);
+    } else {
+      console.log("Could not read testing OTP code from page; falling back to fixed wait.");
+      await page.waitForTimeout(30000);
+    }
 
     // ────────────────────────────────────────────────
     // Rest of your ECD Connect preschool + child flow
@@ -44,7 +62,7 @@ const { chromium } = require("playwright");
     console.log("Filling username/password/");
     await page.click('button:has-text("Create a username")');
     await page.fill('input[name="password"]', "Tester_12");
-    await page.fill('input[placeholder="e.g. Nothando_123"]', "BulkSMSOA11");
+    await page.fill('input[placeholder="e.g. Nothando_123"]', "BulkSMSOA13");
     await page.waitForTimeout(1000);
 
     await page.waitForTimeout(2000)
@@ -62,9 +80,9 @@ await page.getByRole("button", { name: "Yes" }).click();
     await page.click('p.font-semibold.text-sm:has-text("Start")');
     await page.click('p.font-medium.text-textMid.font-h4:has-text("Principal")');
 
-    await page.fill('input[placeholder="First name"]', "BulkSMSOA11");
+    await page.fill('input[placeholder="First name"]', "BulkSMSOA13");
     await page.click('p.font-semibold.text-xs:has-text("Enter passport number instead")');
-    await page.fill('input[placeholder="e.g. A012345"]', "BulkSMSOA11");
+    await page.fill('input[placeholder="e.g. A012345"]', "BulkSMSOA13");
 
     await page.click('p.font-semibold.text-sm:has-text("Next")');
 

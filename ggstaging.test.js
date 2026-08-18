@@ -475,7 +475,9 @@ const VISIT_DASHBOARD_CHROME = new Set([
 async function recordVisitForFolder(invitePage, { personFirstName, resultLabel, screenshotPrefix, maxRounds = 8 }) {
   // Self-contained: always start from the home screen's Client folders list,
   // regardless of what page a previous call in the same run left us on.
-  await invitePage.goto("https://growgreat-qa-fe.azurewebsites.net/", { waitUntil: "domcontentloaded" })
+  // Derived from the page's current origin rather than hardcoded, since the
+  // invite link's frontend domain can vary by environment.
+  await invitePage.goto(new URL(invitePage.url()).origin + "/", { waitUntil: "domcontentloaded" })
   await invitePage.waitForTimeout(2000)
   await invitePage.getByText("Client folders", { exact: true }).click().catch(() => {})
   await invitePage.waitForTimeout(2000)
@@ -772,7 +774,7 @@ async function recordVisitForFolder(invitePage, { personFirstName, resultLabel, 
     
 // Wait for invitation link
 const invitationLinkLocator = page
-  .locator("text=/https:\\/\\/growgreat-qa-api\\.azurewebsites\\.net\\/.+/")
+  .locator("text=/https:\\/\\/[^\\s]+\\.azurewebsites\\.net\\/.+/")
   .first();
 
 await invitationLinkLocator.waitFor({
@@ -945,7 +947,7 @@ await invitePage.waitForTimeout(5000);
     // to the home URL first (rather than hunting for a back button) is reliable
     // regardless of what screen the previous folder's Save left us on.
     async function openNewFolder(folderType) {
-      await invitePage.goto("https://growgreat-qa-fe.azurewebsites.net/", { waitUntil: "domcontentloaded" })
+      await invitePage.goto(new URL(invitePage.url()).origin + "/", { waitUntil: "domcontentloaded" })
       await invitePage.waitForTimeout(2000)
 
       await invitePage.getByText("Client folders", { exact: true }).click()
