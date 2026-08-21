@@ -1,6 +1,7 @@
 const { chromium } = require("playwright")
+const { test } = require("@playwright/test")
 
-;(async () => {
+test("GoogleSearch", async () => {
   const browser = await chromium.launch({ headless: false })
   const page = await browser.newPage()
 
@@ -43,4 +44,4 @@ const { chromium } = require("playwright")
   } finally {
     await browser.close()
   }
-})()
+})
