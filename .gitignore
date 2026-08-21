@@ -1,1 +1,10 @@
 node_modules/
+.DS_Store
+.chw-counter.json
+test-results/
+playwright-report/
+
+# New screenshots from test runs land here; already-tracked ones stay tracked.
+OA/screenshots/*
+WL/screenshots/*
+GG/screenshots/*

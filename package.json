@@ -1,16 +1,19 @@
 {
-  "name": "am",
+  "name": "ecdconnect-qa-automation",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Playwright QA automation for the OA, WL, and GG (GrowGreat/CHW Connect) portals",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "playwright test",
+    "test:oa": "playwright test OA/",
+    "test:wl": "playwright test WL/",
+    "test:gg": "playwright test GG/"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "dependencies": {
-    "playwright": "^1.52.0"
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "playwright": "^1.62.1"
   }
 }
