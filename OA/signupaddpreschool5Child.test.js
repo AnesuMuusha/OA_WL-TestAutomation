@@ -68,7 +68,7 @@ test("OA/signupaddpreschool5Child", async () => {
     console.log("Filling username/password/");
     await page.click('button:has-text("Create a username")');
     await page.fill('input[name="password"]', "Tester_12");
-    await page.fill('input[placeholder="e.g. Nothando_123"]', "BulkSMSOA13");
+    await page.fill('input[placeholder="e.g. Nothando_123"]', "BulkSMSOA13" + Date.now());
     await page.waitForTimeout(1000);
 
     await page.waitForTimeout(2000)
@@ -465,6 +465,45 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByTestId("close-button").click();
 
+    // Classroom → Attendance → take today's register
+    await page.getByRole("heading", { name: "Attendance" }).click();
+    await page.waitForTimeout(2000);
+
+    await page.getByText("No, skip", { exact: true }).click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    await page.getByText("Close", { exact: true }).click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    await page.getByRole("button", { name: "Edit" }).first().click();
+    await page.waitForTimeout(1500);
+
+    await page.locator("#gtm-add-attendance").click();
+    await page.waitForTimeout(2000);
+
+    // Classroom → Activities → choose a theme for the day
+    await page.getByRole("heading", { name: "Activities" }).click();
+    await page.waitForTimeout(2000);
+
+    await page.getByText("No, skip", { exact: true }).click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    await page.getByText("Close", { exact: true }).click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+
+    await page.getByRole("heading", { name: "Class 1" }).click();
+
+    await page.getByText("Choose a theme", { exact: true }).click();
+    await page.waitForTimeout(5000);
+
+    const themeDay = new Date().toISOString().split('T')[0];
+    await page.getByLabel("Start day").click();
+    await page.getByLabel("Start day").fill(themeDay);
+
+    await page.getByRole("listbox").click();
+    await page.getByText("English", { exact: true }).click();
+
+    await page.getByRole("button", { name: "Save" }).click();
+    await page.waitForTimeout(2000);
+
     // Click back arrow
 await page.locator('svg.primaryAccent2 path[d*="M9.707 16.707"]').first().click();
 
@@ -533,32 +572,6 @@ await page.locator('svg.primaryAccent2.cursor-pointer').click();
 await page.locator('svg path[d*="M4.293 4.293"]').click();
 
 await page.locator('svg.primaryAccent2').click();
-
-
-
-//Activities:
-await page.getByRole("heading", { name: "Activities" }).click();
-await page.waitForTimeout(2000);
-
-//Click class1
-await page.getByRole("heading", { name: "Class 1" }).click();
-
-//
-await page.getByText("Choose a theme", { exact: true }).click();
-await page.waitForTimeout(5000);
-
-
-// Click Start day input and fill with today's date
-const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
-await page.getByLabel("Start day").click();
-await page.getByLabel("Start day").fill(today);
-
-// Click language dropdown and select English
-await page.getByRole("listbox").click();
-await page.getByText("English", { exact: true }).click();
-
-// Click Save button
-await page.getByRole("button", { name: "Save" }).click();
 
     console.log("Automation completed successfully!");
     await page.waitForTimeout(5000);

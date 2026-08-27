@@ -9,7 +9,7 @@ fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
 // The numeric ID auto-increments on every run (persisted in .chw-counter.json)
 // so re-running never collides with a previously created user.
 const COUNTER_FILE = path.join(__dirname, ".chw-counter.json")
-const START_ID = 25 // next unused ID after ID0024
+const START_ID = 25 // next unused number after Passport024
 
 function nextId() {
   let current = START_ID
@@ -17,7 +17,7 @@ function nextId() {
     current = JSON.parse(fs.readFileSync(COUNTER_FILE, "utf8")).lastId + 1
   }
   fs.writeFileSync(COUNTER_FILE, JSON.stringify({ lastId: current }))
-  return `ID${String(current).padStart(4, "0")}`
+  return `Passport${String(current).padStart(3, "0")}`
 }
 
 const generatedId = nextId()
@@ -739,6 +739,10 @@ test("GG/ggstaging - offline: child with RTHB", async () => {
     const idNumberInput = 'input[name="idNumber"]'
     await page.waitForSelector(idNumberInput, { state: "visible", timeout: 15000 })
     await page.click(idNumberInput)
+    // Explicit clear before fill — this field doesn't reliably clear on a
+    // single .fill() on staging (same issue as the CHW search box), so a
+    // second .fill() on top of leftover content produced "Passport049Passport049".
+    await page.fill(idNumberInput, "")
     await page.fill(idNumberInput, offlineCHW.passportNumber)
     await page.waitForTimeout(1000)
 
@@ -748,20 +752,33 @@ test("GG/ggstaging - offline: child with RTHB", async () => {
     await page.click(saveButton)
     console.log("Saved new CHW:", offlineFullName)
 
-    // Staging's CHW table doesn't refresh itself right after Save (unlike QA) —
-    // the new row only shows up once the search box is used to (re)fetch/filter
-    // the list, so search for the ID explicitly instead of just waiting on the
-    // table to update on its own.
-    await page.waitForTimeout(2000)
+    // Staging has a multi-minute lag between Save and the new CHW actually
+    // showing up in the Users table or its search — confirmed by testing (a row
+    // created in one run only appeared several minutes later, in a later run).
+    // A single short wait isn't enough, so poll for up to 3 minutes. The search
+    // box is filled ONCE, not re-filled every iteration — this input doesn't
+    // clear itself on repeat .fill() calls, so re-filling it in the loop was
+    // corrupting it into "Passport049Passport049Passport049..." (each call's
+    // text appended instead of replacing), which of course never matched.
+    const addedUserButton = page.locator(`table button:text-is("${offlineFullName}")`).first()
     const chwSearchInput = page.getByPlaceholder(/search by id number or name/i)
     if ((await chwSearchInput.count()) > 0) {
       await chwSearchInput.fill(offlineId).catch(() => {})
-      console.log(`Searched CHW list for "${offlineId}"`)
-      await page.waitForTimeout(2000)
     }
-
-    const addedUserButton = page.locator(`table button:text-is("${offlineFullName}")`).first()
-    await addedUserButton.waitFor({ state: "visible", timeout: 30000 })
+    const pollDeadline = Date.now() + 180000
+    let addedUserFound = false
+    while (Date.now() < pollDeadline) {
+      await page.waitForTimeout(10000)
+      if (await addedUserButton.isVisible().catch(() => false)) {
+        addedUserFound = true
+        break
+      }
+      console.log(`Still waiting for CHW "${offlineFullName}" to appear in the Users table...`)
+    }
+    if (!addedUserFound) {
+      await addedUserButton.waitFor({ state: "visible", timeout: 5000 })
+    }
+    console.log(`CHW "${offlineFullName}" appeared in the Users table`)
     await addedUserButton.scrollIntoViewIfNeeded()
     await addedUserButton.click()
 
@@ -1313,6 +1330,10 @@ test("GG/ggstaging", async () => {
     const idNumberInput = 'input[name="idNumber"]'
     await page.waitForSelector(idNumberInput, { state: "visible", timeout: 15000 })
     await page.click(idNumberInput)
+    // Explicit clear before fill — this field doesn't reliably clear on a
+    // single .fill() on staging (same issue as the CHW search box), so a
+    // second .fill() on top of leftover content produced a doubled value.
+    await page.fill(idNumberInput, "")
     await page.fill(idNumberInput, CHW.passportNumber)
     console.log(`Entered passport number: ${CHW.passportNumber}`)
     await page.waitForTimeout(1000)
@@ -1748,6 +1769,30 @@ await invitePage.waitForTimeout(5000);
         photoQuestionChoice: "No",
       })
       await reportResult(extraMomResult, `Pregnant mom (extra ${i})`, `pregnant_mom_extra${i}_registered.png`)
+    }
+
+    // ----- Folders 9-11: three more separate Child, with RTHB folders (each
+    // with a visit recorded), mirroring the extra Pregnant mom loop above. -----
+    for (let i = 1; i <= 3; i++) {
+      await openNewFolder("Child")
+      const extraChildResult = await runRegistrationWizard(invitePage, {
+        label: `Child registration (extra ${i}, RTHB)`,
+        generatedId,
+        CHW,
+        namePrefix: `ChildExtra${i}RTHB`,
+        surnamePrefix: "Auto",
+        extraStepHandler: childExtraHandler,
+        photoQuestionChoice: "Yes",
+      })
+      await reportResult(extraChildResult, `Child (extra ${i}, RTHB)`, `child_extra${i}_rthb_registered.png`)
+
+      if (extraChildResult.success) {
+        await recordVisitForFolder(invitePage, {
+          personFirstName: extraChildResult.firstName,
+          resultLabel: `Visit (Child extra ${i}, RTHB)`,
+          screenshotPrefix: `child_extra${i}_rthb_visit`,
+        })
+      }
     }
   } catch (error) {
     console.error("An error occurred:", error)

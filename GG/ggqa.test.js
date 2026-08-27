@@ -1798,6 +1798,30 @@ await invitePage.waitForTimeout(5000);
       })
       await reportResult(extraMomResult, `Pregnant mom (extra ${i})`, `pregnant_mom_extra${i}_registered.png`)
     }
+
+    // ----- Folders 9-11: three more separate Child, with RTHB folders (each
+    // with a visit recorded), mirroring the extra Pregnant mom loop above. -----
+    for (let i = 1; i <= 3; i++) {
+      await openNewFolder("Child")
+      const extraChildResult = await runRegistrationWizard(invitePage, {
+        label: `Child registration (extra ${i}, RTHB)`,
+        generatedId,
+        CHW,
+        namePrefix: `ChildExtra${i}RTHB`,
+        surnamePrefix: "Auto",
+        extraStepHandler: childExtraHandler,
+        photoQuestionChoice: "Yes",
+      })
+      await reportResult(extraChildResult, `Child (extra ${i}, RTHB)`, `child_extra${i}_rthb_registered.png`)
+
+      if (extraChildResult.success) {
+        await recordVisitForFolder(invitePage, {
+          personFirstName: extraChildResult.firstName,
+          resultLabel: `Visit (Child extra ${i}, RTHB)`,
+          screenshotPrefix: `child_extra${i}_rthb_visit`,
+        })
+      }
+    }
   } catch (error) {
     console.error("An error occurred:", error)
     await page.screenshot({ path: path.join(SCREENSHOTS_DIR, "error_screenshot.png"), fullPage: true })

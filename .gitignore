@@ -8,3 +8,7 @@ playwright-report/
 OA/screenshots/*
 WL/screenshots/*
 GG/screenshots/*
+
+# JMeter load-test work — kept local, not part of this repo.
+jmeter/
+jmeter.log
