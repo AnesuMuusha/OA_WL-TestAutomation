@@ -1,6 +1,9 @@
 node_modules/
 .DS_Store
 .chw-counter.json
+OA/.oa-username-counter.json
+OA/.oatp-username-counter.json
+OA/.oatp-staging-username-counter.json
 test-results/
 playwright-report/
 
