@@ -4,6 +4,24 @@ const fs = require("fs")
 const path = require("path")
 const SCREENSHOTS_DIR = path.join(__dirname, "screenshots")
 fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
+const { logGeneratedUsername } = require("../usernameLog")
+
+// Persistent counter so every run gets a fresh, readable id instead of a raw
+// timestamp. Names run "BulkSMSWL1000000001", "BulkSMSWL1000000002", ...
+// always incrementing by 1, so a run never collides with a previous one.
+const SIGNUP_COUNTER_FILE = path.join(__dirname, ".wl-signup5child-counter.json")
+function nextSignupId(prefix) {
+  let n = 1
+  try {
+    n = JSON.parse(fs.readFileSync(SIGNUP_COUNTER_FILE, "utf8")).count || 1
+  } catch {
+    // first run – counter file doesn't exist yet
+  }
+  fs.writeFileSync(SIGNUP_COUNTER_FILE, JSON.stringify({ count: n + 1 }, null, 2))
+  const id = prefix + String(n).padStart(8, "0")
+  logGeneratedUsername("QA", "WL/wlsignupaddpreschool5Child", id)
+  return id
+}
 
 // Helper function to check if we're still on the right page
 async function checkPageState(currentPage, expectedUrlPattern) {
@@ -109,7 +127,7 @@ let newPage;
 // Unique per run so this practitioner never collides with one from a previous
 // run (a stale hardcoded name matched an already-onboarded leftover account
 // and broke the "Resend Invitation" step further down).
-const practitionerId = `BulkSMSWL10-${Date.now()}`;
+const practitionerId = nextSignupId("BulkSMSWL10");
 
 // Set up dialog handlers
 context.on("dialog", async (dialog) => {

@@ -4,8 +4,15 @@ node_modules/
 OA/.oa-username-counter.json
 OA/.oatp-username-counter.json
 OA/.oatp-staging-username-counter.json
+WL/.wl-bulkusers-counter.json
+WL/.wl-prod-bulkusers-counter.json
+OA/.oa-signup5child-counter.json
+WL/.wl-signup5child-counter.json
 test-results/
 playwright-report/
+
+# Templates downloaded during bulk-users test runs — kept local.
+WL/downloads/
 
 # New screenshots from test runs land here; already-tracked ones stay tracked.
 OA/screenshots/*
@@ -15,3 +22,6 @@ GG/screenshots/*
 # JMeter load-test work — kept local, not part of this repo.
 jmeter/
 jmeter.log
+
+# Local log of every generated username (written by usernameLog.js) — kept local.
+generated-usernames.csv

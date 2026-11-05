@@ -4,6 +4,7 @@ const fs = require("fs")
 const path = require("path")
 const SCREENSHOTS_DIR = path.join(__dirname, "screenshots")
 fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
+const { logGeneratedUsername } = require("../usernameLog")
 
 // --- Test data (change these freely; the script tracks them automatically) ---
 // The numeric ID auto-increments on every run (persisted in .chw-counter.json)
@@ -17,7 +18,9 @@ function nextId() {
     current = JSON.parse(fs.readFileSync(COUNTER_FILE, "utf8")).lastId + 1
   }
   fs.writeFileSync(COUNTER_FILE, JSON.stringify({ lastId: current }))
-  return `ID${String(current).padStart(5, "0")}`
+  const id = `ID${String(current).padStart(5, "0")}`
+  logGeneratedUsername("QA", "GG/ggqa", id)
+  return id
 }
 
 const generatedId = nextId()
@@ -743,6 +746,10 @@ test("GG/ggqa - offline: child with RTHB", async () => {
     const idNumberInput = 'input[name="idNumber"]'
     await page.waitForSelector(idNumberInput, { state: "visible", timeout: 15000 })
     await page.click(idNumberInput)
+    // Explicit clear before fill — this field doesn't reliably clear on a
+    // single .fill() (same issue as the CHW search box), so a second .fill()
+    // on top of leftover content can produce a doubled value.
+    await page.fill(idNumberInput, "")
     await page.fill(idNumberInput, offlineCHW.passportNumber)
     await page.waitForTimeout(1000)
 
@@ -752,8 +759,37 @@ test("GG/ggqa - offline: child with RTHB", async () => {
     await page.click(saveButton)
     console.log("Saved new CHW:", offlineFullName)
 
+    // There can be a lag between Save and the new CHW actually showing up in
+    // the Users table — filter via the search box, then poll for up to 3
+    // minutes instead of a single short wait.
     const addedUserButton = page.locator(`table button:text-is("${offlineFullName}")`).first()
-    await addedUserButton.waitFor({ state: "visible", timeout: 20000 })
+    const chwSearchInput = page.getByPlaceholder(/search by id number or name/i)
+    if ((await chwSearchInput.count()) > 0) {
+      // This search box's live filter listens for real keystrokes, not a
+      // programmatic value set — .fill() lands the text but never triggers
+      // the filter, so the table stays unfiltered and the new row can sit
+      // off-screen on another page forever. Click in, clear, and type it out
+      // character by character (matches typing it by hand), then give the
+      // debounce a moment to apply.
+      await chwSearchInput.click().catch(() => {})
+      await chwSearchInput.fill("").catch(() => {})
+      await chwSearchInput.pressSequentially(offlineId, { delay: 50 }).catch(() => {})
+      await page.waitForTimeout(1000)
+    }
+    const pollDeadline = Date.now() + 180000
+    let addedUserFound = false
+    while (Date.now() < pollDeadline) {
+      await page.waitForTimeout(10000)
+      if (await addedUserButton.isVisible().catch(() => false)) {
+        addedUserFound = true
+        break
+      }
+      console.log(`Still waiting for CHW "${offlineFullName}" to appear in the Users table...`)
+    }
+    if (!addedUserFound) {
+      await addedUserButton.waitFor({ state: "visible", timeout: 5000 })
+    }
+    console.log(`CHW "${offlineFullName}" appeared in the Users table`)
     await addedUserButton.scrollIntoViewIfNeeded()
     await addedUserButton.click()
 
@@ -1309,6 +1345,10 @@ test("GG/ggacountcreation", async () => {
     const idNumberInput = 'input[name="idNumber"]'
     await page.waitForSelector(idNumberInput, { state: "visible", timeout: 15000 })
     await page.click(idNumberInput)
+    // Explicit clear before fill — this field doesn't reliably clear on a
+    // single .fill() (same issue as the CHW search box), so a second .fill()
+    // on top of leftover content can produce a doubled value.
+    await page.fill(idNumberInput, "")
     await page.fill(idNumberInput, CHW.passportNumber)
     console.log(`Entered passport number: ${CHW.passportNumber}`)
     await page.waitForTimeout(1000)
@@ -1324,8 +1364,33 @@ test("GG/ggacountcreation", async () => {
     // The name lives inside a <button> in the row: e.g. "AutoFirstName2 ID0024".
     console.log(`Looking for the newly added CHW row: "${fullName}"`)
 
+    // There can be a lag between Save and the new CHW actually showing up in
+    // the Users table — filter via the search box, then poll for up to 3
+    // minutes instead of a single short wait.
     const addedUserButton = page.locator(`table button:text-is("${fullName}")`).first()
-    await addedUserButton.waitFor({ state: "visible", timeout: 20000 })
+    const chwSearchInput = page.getByPlaceholder(/search by id number or name/i)
+    if ((await chwSearchInput.count()) > 0) {
+      // See the offline test above: .fill() doesn't trigger this search
+      // box's live filter — it needs real keystrokes.
+      await chwSearchInput.click().catch(() => {})
+      await chwSearchInput.fill("").catch(() => {})
+      await chwSearchInput.pressSequentially(generatedId, { delay: 50 }).catch(() => {})
+      await page.waitForTimeout(1000)
+    }
+    const pollDeadline = Date.now() + 180000
+    let addedUserFound = false
+    while (Date.now() < pollDeadline) {
+      await page.waitForTimeout(10000)
+      if (await addedUserButton.isVisible().catch(() => false)) {
+        addedUserFound = true
+        break
+      }
+      console.log(`Still waiting for CHW "${fullName}" to appear in the Users table...`)
+    }
+    if (!addedUserFound) {
+      await addedUserButton.waitFor({ state: "visible", timeout: 5000 })
+    }
+    console.log(`CHW "${fullName}" appeared in the Users table`)
 
     await addedUserButton.scrollIntoViewIfNeeded()
     await addedUserButton.click()
