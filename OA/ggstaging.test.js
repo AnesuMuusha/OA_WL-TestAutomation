@@ -5,8 +5,25 @@ const fs = require("fs")
 const path = require("path")
 const SCREENSHOTS_DIR = path.join(__dirname, "screenshots")
 fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
+const { logGeneratedUsername } = require("../usernameLog")
 
-test("OA/signupaddpreschool5Child", async () => {
+// Persistent run counter so each signup gets a unique username.
+// Starts at "00001" and increments by 1 after every run.
+const USERNAME_COUNTER_FILE = path.join(__dirname, ".oa-username-counter.json")
+function nextUsername() {
+  let count = 1
+  try {
+    count = JSON.parse(fs.readFileSync(USERNAME_COUNTER_FILE, "utf8")).count || 1
+  } catch {
+    // first run – counter file doesn't exist yet
+  };
+  fs.writeFileSync(USERNAME_COUNTER_FILE, JSON.stringify({ count: count + 1 }, null, 2))
+  const id = "Ben" + String(count).padStart(5, "0")
+  logGeneratedUsername("Staging", "OA/stagingOASignupAddPreschoolChild5", id)
+  return id
+}
+
+test("OA/stagingOASignupAddPreschoolChild5", async () => {
   const browser = await chromium.launch({ headless: false, slowMo: 300 }); // slowMo helps debugging
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -16,8 +33,8 @@ test("OA/signupaddpreschool5Child", async () => {
     // ECD Connect Signup – Phone Number & Initial Steps
     // ────────────────────────────────────────────────
     console.log("Navigating to landing page...");
-    await page.goto("https://ecdconnect-qa-app.azurewebsites.net/", {
-      timeout: 50000,
+    await page.goto("https://app.staging.ecdconnect.co.za/", {
+      timeout: 60000,
       waitUntil: "domcontentloaded",
     });
 
@@ -43,18 +60,30 @@ test("OA/signupaddpreschool5Child", async () => {
 
     await page.bringToFront();
 
+    // ────────────────────────────────────────────────
+    // OTP / verification code – read the testing-only
+    // banner code and enter it (no manual paste needed)
+    // ────────────────────────────────────────────────
     console.log("Waiting for OTP screen...");
-    await page.getByText("Enter your 6 digit code").waitFor({ timeout: 15000 }).catch(() => {});
+    await page.getByText("Enter your 6 digit code").waitFor({ timeout: 30000 }).catch(() => {});
 
-    const otpBannerText = await page
-      .getByText(/testing only.*code:/i)
-      .innerText()
-      .catch(() => "");
-    const otpMatch = otpBannerText.match(/(\d{6})/);
+    let otpCode = "";
+    for (let attempt = 0; attempt < 15 && !otpCode; attempt++) {
+      const otpBannerText = await page
+        .getByText(/testing only.*code:/i)
+        .innerText()
+        .catch(() => "");
+      const otpMatch = otpBannerText.match(/(\d{6})/);
+      if (otpMatch) {
+        otpCode = otpMatch[1];
+        break;
+      }
+      await page.waitForTimeout(1000);
+    }
 
-    if (otpMatch) {
-      console.log(`Filling OTP code ${otpMatch[1]}...`);
-      await page.getByPlaceholder("------").fill(otpMatch[1]);
+    if (otpCode) {
+      console.log(`Filling OTP code ${otpCode}...`);
+      await page.getByPlaceholder("------").fill(otpCode);
       await page.getByRole("button", { name: "Confirm" }).click();
       await page.waitForTimeout(2000);
     } else {
@@ -65,10 +94,12 @@ test("OA/signupaddpreschool5Child", async () => {
     // ────────────────────────────────────────────────
     // Rest of your ECD Connect preschool + child flow
     // ────────────────────────────────────────────────
-    console.log("Filling username/password/");
+    const username = nextUsername();
+    console.log("Filling username/password/ – username:", username);
+    await page.waitForSelector('button:has-text("Create a username")', { timeout: 30000 });
     await page.click('button:has-text("Create a username")');
     await page.fill('input[name="password"]', "Tester_12");
-    await page.fill('input[placeholder="e.g. Nothando_123"]', "BulkSMSOA13" + Date.now());
+    await page.fill('input[placeholder="e.g. Nothando_123"]', username);
     await page.waitForTimeout(1000);
 
     await page.waitForTimeout(2000)
@@ -86,9 +117,9 @@ await page.getByRole("button", { name: "Yes" }).click();
     await page.click('p.font-semibold.text-sm:has-text("Start")');
     await page.click('p.font-medium.text-textMid.font-h4:has-text("Principal")');
 
-    await page.fill('input[placeholder="First name"]', "BulkSMSOA13");
+    await page.fill('input[placeholder="First name"]', "Ben");
     await page.click('p.font-semibold.text-xs:has-text("Enter passport number instead")');
-    await page.fill('input[placeholder="e.g. A012345"]', "BulkSMSOA13");
+    await page.fill('input[placeholder="e.g. A012345"]', "Ben");
 
     await page.click('p.font-semibold.text-sm:has-text("Next")');
 
@@ -118,8 +149,8 @@ await page.getByRole("button", { name: "Yes" }).click();
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Lisa");
-    await page.getByPlaceholder("Surname/Family name").fill("Jaz");
+    await page.getByPlaceholder("First name").fill("Charlotte");
+    await page.getByPlaceholder("Surname/Family name").fill("Johnson");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -155,8 +186,8 @@ await page.getByRole("button", { name: "Yes" }).click();
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("Laura");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.getByPlaceholder("E.g. 082 345 6789").fill(testdata.guardianPhone);
 
     await page.getByText("Next").click();
@@ -168,8 +199,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Robert");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.locator('input[name="phoneNumber"]').fill(testdata.secondaryGuardianPhone);
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -190,8 +221,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Mandy");
-    await page.getByPlaceholder("Surname/Family name").fill("Juqu");
+    await page.getByPlaceholder("First name").fill("Amelia");
+    await page.getByPlaceholder("Surname/Family name").fill("Garcia");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -227,8 +258,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("Laura");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.getByPlaceholder("E.g. 082 345 6789").fill(testdata.guardianPhone);
 
     await page.getByText("Next").click();
@@ -240,8 +271,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Robert");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.locator('input[name="phoneNumber"]').fill(testdata.secondaryGuardianPhone);
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -261,8 +292,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Ben");
-    await page.getByPlaceholder("Surname/Family name").fill("Ecco");
+    await page.getByPlaceholder("First name").fill("Henry");
+    await page.getByPlaceholder("Surname/Family name").fill("Martinez");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -298,8 +329,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("Laura");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.getByPlaceholder("E.g. 082 345 6789").fill(testdata.guardianPhone);
 
     await page.getByText("Next").click();
@@ -311,8 +342,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Robert");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.locator('input[name="phoneNumber"]').fill(testdata.secondaryGuardianPhone);
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -334,8 +365,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Bob");
-    await page.getByPlaceholder("Surname/Family name").fill("Juqu");
+    await page.getByPlaceholder("First name").fill("Alexander");
+    await page.getByPlaceholder("Surname/Family name").fill("Rodriguez");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -371,8 +402,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("David");
+    await page.getByPlaceholder("Surname/family name").fill("Brown");
     await page.getByPlaceholder("E.g. 082 345 6789").fill(testdata.guardianPhone);
 
     await page.getByText("Next").click();
@@ -384,8 +415,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Emma");
+    await page.getByPlaceholder("Surname/family name").fill("Brown");
     await page.locator('input[name="phoneNumber"]').fill(testdata.secondaryGuardianPhone);
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -404,8 +435,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByRole("button", { name: "Add a child" }).click();
 
-    await page.getByPlaceholder("First name").fill("Kelvin");
-    await page.getByPlaceholder("Surname/Family name").fill("Juqu");
+    await page.getByPlaceholder("First name").fill("Mia");
+    await page.getByPlaceholder("Surname/Family name").fill("Anderson");
 
     await page.getByRole("button", { name: "Select class" }).click();
     await page.getByText("Class 1").click();
@@ -441,8 +472,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
     await page.getByText("Select relationship").click();
     await page.getByText("Mother").click();
 
-    await page.getByPlaceholder("First name").fill("Musa");
-    await page.getByPlaceholder("Surname/family name").fill("Smith");
+    await page.getByPlaceholder("First name").fill("Laura");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.getByPlaceholder("E.g. 082 345 6789").fill(testdata.guardianPhone);
 
     await page.getByText("Next").click();
@@ -454,8 +485,8 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
 
     await page.getByRole("button", { name: "Next" }).click();
 
-    await page.getByPlaceholder("First name").fill("Salam");
-    await page.getByPlaceholder("Surname/family name").fill("Page");
+    await page.getByPlaceholder("First name").fill("Robert");
+    await page.getByPlaceholder("Surname/family name").fill("Johnson");
     await page.locator('input[name="phoneNumber"]').fill(testdata.secondaryGuardianPhone);
 
     await page.locator("div.bg-secondaryAccent2").getByText("Yes").click();
@@ -464,45 +495,6 @@ await page.locator('textarea[name="streetAddress"]').fill(testdata.streetAddress
     await page.waitForTimeout(2000);
 
     await page.getByTestId("close-button").click();
-
-    // Classroom → Attendance → take today's register
-    await page.getByRole("heading", { name: "Attendance" }).click();
-    await page.waitForTimeout(2000);
-
-    await page.getByText("No, skip", { exact: true }).click({ timeout: 5000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-    await page.getByText("Close", { exact: true }).click({ timeout: 5000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-
-    await page.getByRole("button", { name: "Edit" }).first().click();
-    await page.waitForTimeout(1500);
-
-    await page.locator("#gtm-add-attendance").click();
-    await page.waitForTimeout(2000);
-
-    // Classroom → Activities → choose a theme for the day
-    await page.getByRole("heading", { name: "Activities" }).click();
-    await page.waitForTimeout(2000);
-
-    await page.getByText("No, skip", { exact: true }).click({ timeout: 5000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-    await page.getByText("Close", { exact: true }).click({ timeout: 5000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-
-    await page.getByRole("heading", { name: "Class 1" }).click();
-
-    await page.getByText("Choose a theme", { exact: true }).click();
-    await page.waitForTimeout(5000);
-
-    const themeDay = new Date().toISOString().split('T')[0];
-    await page.getByLabel("Start day").click();
-    await page.getByLabel("Start day").fill(themeDay);
-
-    await page.getByRole("listbox").click();
-    await page.getByText("English", { exact: true }).click();
-
-    await page.getByRole("button", { name: "Save" }).click();
-    await page.waitForTimeout(2000);
 
     // Click back arrow
 await page.locator('svg.primaryAccent2 path[d*="M9.707 16.707"]').first().click();
@@ -572,6 +564,32 @@ await page.locator('svg.primaryAccent2.cursor-pointer').click();
 await page.locator('svg path[d*="M4.293 4.293"]').click();
 
 await page.locator('svg.primaryAccent2').click();
+
+
+
+//Activities:
+await page.getByRole("heading", { name: "Activities" }).click();
+await page.waitForTimeout(2000);
+
+//Click class1
+await page.getByRole("heading", { name: "Class 1" }).click();
+
+//
+await page.getByText("Choose a theme", { exact: true }).click();
+await page.waitForTimeout(5000);
+
+
+// Click Start day input and fill with today's date
+const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+await page.getByLabel("Start day").click();
+await page.getByLabel("Start day").fill(today);
+
+// Click language dropdown and select English
+await page.getByRole("listbox").click();
+await page.getByText("English", { exact: true }).click();
+
+// Click Save button
+await page.getByRole("button", { name: "Save" }).click();
 
     console.log("Automation completed successfully!");
     await page.waitForTimeout(5000);

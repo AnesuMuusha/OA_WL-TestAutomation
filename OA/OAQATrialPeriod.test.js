@@ -5,6 +5,7 @@ const fs = require("fs")
 const path = require("path")
 const SCREENSHOTS_DIR = path.join(__dirname, "screenshots")
 fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
+const { logGeneratedUsername } = require("../usernameLog")
 
 // Persistent run counter so each signup gets a unique username.
 // Starts at "OATP000001" and increments by 1 after every run.
@@ -17,7 +18,9 @@ function nextUsername() {
     // first run – counter file doesn't exist yet
   }
   fs.writeFileSync(USERNAME_COUNTER_FILE, JSON.stringify({ count: count + 1 }, null, 2))
-  return "OATP" + String(count).padStart(6, "0")
+  const id = "OATP" + String(count).padStart(6, "0")
+  logGeneratedUsername("QA", "OA/OAQATrialPeriod", id)
+  return id
 }
 
 test("OA/OAQATrialPeriod", async () => {
