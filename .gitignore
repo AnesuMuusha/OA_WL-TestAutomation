@@ -7,7 +7,10 @@ OA/.oatp-staging-username-counter.json
 WL/.wl-bulkusers-counter.json
 WL/.wl-prod-bulkusers-counter.json
 OA/.oa-signup5child-counter.json
+OA/.oa-offline-counter.json
 WL/.wl-signup5child-counter.json
+WL/.wl-prod-signup5child-counter.json
+WL/.wl-offline-counter.json
 test-results/
 playwright-report/
 

@@ -4,12 +4,13 @@ const fs = require("fs")
 const path = require("path")
 const SCREENSHOTS_DIR = path.join(__dirname, "screenshots")
 fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
+const { setPinIfPrompted } = require("../pinSetup")
 const { logGeneratedUsername } = require("../usernameLog")
 
-// Persistent counter so every run gets a fresh, readable id instead of a raw
-// timestamp. Names run "BulkSMSWL1000000001", "BulkSMSWL1000000002", ...
-// always incrementing by 1, so a run never collides with a previous one.
-const SIGNUP_COUNTER_FILE = path.join(__dirname, ".wl-signup5child-counter.json")
+// Persistent counter so every run gets a fresh, readable id. Names run
+// "DBESTAGINGWL00000001", "DBESTAGINGWL00000002", ... always incrementing by
+// 1, so a run never collides with a practitioner from a previous run.
+const SIGNUP_COUNTER_FILE = path.join(__dirname, ".wl-prod-signup5child-counter.json")
 function nextSignupId(prefix) {
   let n = 1
   try {
@@ -19,7 +20,7 @@ function nextSignupId(prefix) {
   }
   fs.writeFileSync(SIGNUP_COUNTER_FILE, JSON.stringify({ count: n + 1 }, null, 2))
   const id = prefix + String(n).padStart(8, "0")
-  logGeneratedUsername("QA", "WL/wlsignupaddpreschool5Child", id)
+  logGeneratedUsername("Prod", "WL/WlProd5", id)
   return id
 }
 
@@ -115,7 +116,9 @@ async function safeFill(page, selector, value, options = {}) {
 }
 
 // Optimized login automation
-test("WL/wlsignupaddpreschool5Child", async () => {
+test("WL/prodWlSignupaddPreschoolChild", async () => {
+// Unique per run so this practitioner never collides with an existing user
+const practitionerId = nextSignupId("DBESTAGINGWL");
 const browser = await chromium.launch({ headless: false });
 const context = await browser.newContext({ 
   permissions: ['clipboard-read', 'clipboard-write'],
@@ -123,11 +126,6 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 let newPage;
-
-// Unique per run so this practitioner never collides with one from a previous
-// run (a stale hardcoded name matched an already-onboarded leftover account
-// and broke the "Resend Invitation" step further down).
-const practitionerId = nextSignupId("BulkSMSWL10");
 
 // Set up dialog handlers
 context.on("dialog", async (dialog) => {
@@ -157,7 +155,7 @@ page.on("close", () => {
 try {
 // Step 1: Navigate to landing page
 console.log("=== Step 1: Navigating to landing page ===");
-await page.goto("https://whitelabel-qa-portal.azurewebsites.net/", {
+await page.goto("http://portal-whitelabel.ecdconnect.co.za/", {
 timeout: 15000,
 waitUntil: "domcontentloaded",
 });
@@ -237,7 +235,6 @@ await page.waitForSelector('input[name="idNumber"]', { timeout: 10000 });
 await safeFill(page, 'input[name="idNumber"]', practitionerId);
 
 // Step 13: Select Practitioner's coach
-
 console.log("=== Step 13: Selecting Practitioner's coach ===");
 await page.waitForSelector('label:has-text("Practitioner\'s coach")', { timeout: 50000 });
 await safeClick(page, 'label:has-text("Practitioner\'s coach")');
@@ -406,12 +403,22 @@ if (!(await waitForPageReady(newPage))) {
   throw new Error("Signup failed or page redirected unexpectedly");
 }
 
+// Set PIN 1234 and confirm it (new step after account creation)
+const pinSet = await setPinIfPrompted(newPage, SCREENSHOTS_DIR)
+
 // Click Start button
 // Click "Start"
 console.log("=== Clicking Start ===");
-await newPage.waitForSelector('button:has-text("Start")', { timeout: 10000, state: 'visible' });
-await newPage.getByRole('button', { name: 'Start' }).click();
+// exact: the PIN confirm screen also has a "Start again" button
+const startButton = newPage.getByRole('button', { name: 'Start', exact: true });
+await startButton.waitFor({ timeout: 10000, state: 'visible' });
+await startButton.click();
 console.log("Clicked 'Start'");
+
+// In case the PIN screen comes after Start instead of before it
+if (!pinSet) {
+  await setPinIfPrompted(newPage, SCREENSHOTS_DIR, 10000)
+}
 
 // Wait longer for the page to fully load
 await newPage.waitForLoadState('networkidle');

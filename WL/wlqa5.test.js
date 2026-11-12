@@ -4,6 +4,25 @@ const fs = require("fs")
 const path = require("path")
 const SCREENSHOTS_DIR = path.join(__dirname, "screenshots")
 fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
+const { logGeneratedUsername } = require("../usernameLog")
+const { setPinIfPrompted } = require("../pinSetup")
+
+// Persistent counter so every run gets a fresh, readable id instead of a raw
+// timestamp. Names run "BulkSMSWL1000000001", "BulkSMSWL1000000002", ...
+// always incrementing by 1, so a run never collides with a previous one.
+const SIGNUP_COUNTER_FILE = path.join(__dirname, ".wl-signup5child-counter.json")
+function nextSignupId(prefix) {
+  let n = 1
+  try {
+    n = JSON.parse(fs.readFileSync(SIGNUP_COUNTER_FILE, "utf8")).count || 1
+  } catch {
+    // first run – counter file doesn't exist yet
+  }
+  fs.writeFileSync(SIGNUP_COUNTER_FILE, JSON.stringify({ count: n + 1 }, null, 2))
+  const id = prefix + String(n).padStart(8, "0")
+  logGeneratedUsername("QA", "WL/wlqa5", id)
+  return id
+}
 
 // Helper function to check if we're still on the right page
 async function checkPageState(currentPage, expectedUrlPattern) {
@@ -97,7 +116,7 @@ async function safeFill(page, selector, value, options = {}) {
 }
 
 // Optimized login automation
-test("WL/prodWlSignupaddPreschoolChild", async () => {
+test("WL/wlqa5", async () => {
 const browser = await chromium.launch({ headless: false });
 const context = await browser.newContext({ 
   permissions: ['clipboard-read', 'clipboard-write'],
@@ -105,6 +124,11 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 let newPage;
+
+// Unique per run so this practitioner never collides with one from a previous
+// run (a stale hardcoded name matched an already-onboarded leftover account
+// and broke the "Resend Invitation" step further down).
+const practitionerId = nextSignupId("BulkSMSWL10");
 
 // Set up dialog handlers
 context.on("dialog", async (dialog) => {
@@ -134,7 +158,7 @@ page.on("close", () => {
 try {
 // Step 1: Navigate to landing page
 console.log("=== Step 1: Navigating to landing page ===");
-await page.goto("http://portal-whitelabel.ecdconnect.co.za/", {
+await page.goto("https://whitelabel-qa-portal.azurewebsites.net/", {
 timeout: 15000,
 waitUntil: "domcontentloaded",
 });
@@ -191,7 +215,7 @@ await safeClick(page, 'p:has-text("Add one Practitioner") >> xpath=..');
 // Step 8: Fill first name field
 console.log("=== Step 8: Filling first name ===");
 await page.waitForSelector('input[name="firstName"]', { timeout: 10000 });
-await safeFill(page, 'input[name="firstName"]', 'DBESTAGINGWL1');
+await safeFill(page, 'input[name="firstName"]', practitionerId);
 
 // Step 9: Fill surname field
 console.log("=== Step 9: Filling surname ===");
@@ -211,9 +235,10 @@ await safeClick(page, 'button:has(p:has-text("Passport"))');
 // Step 12: Fill ID number field
 console.log("=== Step 12: Filling ID number ===");
 await page.waitForSelector('input[name="idNumber"]', { timeout: 10000 });
-await safeFill(page, 'input[name="idNumber"]', 'DBESTAGINGWL1');
+await safeFill(page, 'input[name="idNumber"]', practitionerId);
 
 // Step 13: Select Practitioner's coach
+
 console.log("=== Step 13: Selecting Practitioner's coach ===");
 await page.waitForSelector('label:has-text("Practitioner\'s coach")', { timeout: 50000 });
 await safeClick(page, 'label:has-text("Practitioner\'s coach")');
@@ -236,7 +261,7 @@ await page.waitForSelector('table', { timeout: 15000 });
 
 // Step 16: Find and click the row containing the practitioner's name
 console.log("=== Step 16: Finding and clicking practitioner row ===");
-const practitionerName = 'DBESTAGINGWL1';
+const practitionerName = practitionerId;
 console.log(`Searching for practitioner: ${practitionerName}`);
 await page.waitForSelector(`td:has-text("${practitionerName}")`, { timeout: 15000 });
 const rows = await page.$$(`td:has-text("${practitionerName}")`);
@@ -308,7 +333,7 @@ console.log("Clicked 'Enter Passport number instead'");
 
 // Enter passport number
 console.log("=== Filling passport number ===");
-await safeFill(newPage, 'input[name="username"]', 'DBESTAGINGWL1');
+await safeFill(newPage, 'input[name="username"]', practitionerId);
 console.log("Filled passport number");
 
 // Enter phone number
@@ -339,7 +364,7 @@ console.log("Clicked 'Create a username'");
 
 // Enter username
 console.log("=== Filling username ===");
-await safeFill(newPage, 'input[placeholder="e.g. Nothando_123"]', 'DBESTAGINGWL1');
+await safeFill(newPage, 'input[placeholder="e.g. Nothando_123"]', practitionerId);
 console.log("Filled username");
 
 // Enter password
@@ -382,12 +407,22 @@ if (!(await waitForPageReady(newPage))) {
   throw new Error("Signup failed or page redirected unexpectedly");
 }
 
+// Set PIN 1234 and confirm it (new step after account creation)
+const pinSet = await setPinIfPrompted(newPage, SCREENSHOTS_DIR)
+
 // Click Start button
 // Click "Start"
 console.log("=== Clicking Start ===");
-await newPage.waitForSelector('button:has-text("Start")', { timeout: 10000, state: 'visible' });
-await newPage.getByRole('button', { name: 'Start' }).click();
+// exact: the PIN confirm screen also has a "Start again" button
+const startButton = newPage.getByRole('button', { name: 'Start', exact: true });
+await startButton.waitFor({ timeout: 10000, state: 'visible' });
+await startButton.click();
 console.log("Clicked 'Start'");
+
+// In case the PIN screen comes after Start instead of before it
+if (!pinSet) {
+  await setPinIfPrompted(newPage, SCREENSHOTS_DIR, 10000)
+}
 
 // Wait longer for the page to fully load
 await newPage.waitForLoadState('networkidle');
@@ -920,7 +955,7 @@ await newPage.waitForTimeout(3000); // Wait 3 seconds before closing
 
 console.log("🎉 Automation completed successfully! 🎉");
 console.log("Summary:");
-console.log("✓ Created practitioner: DBESTAGINGWL1");
+console.log(`✓ Created practitioner: ${practitionerId}`);
 console.log("✓ Set up preschool: TestAuto");
 console.log("✓ Added class with practitioner");
 console.log("✓ Added child: Lisa Jaz");
